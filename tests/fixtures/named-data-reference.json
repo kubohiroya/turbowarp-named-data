@@ -1,0 +1,7 @@
+{
+  "namespace": "structured",
+  "name": "profile",
+  "kind": "structured",
+  "scope": "target",
+  "representation": "json"
+}

@@ -1,110 +1,70 @@
-# TurboWarp-Extension-Template
+# TurboWarp-Named-Data
 
 [English](README.md)
 
-ViteでTurboWarp拡張機能を開発、テスト、ビルド、リリースするための再利用可能なTypeScriptテンプレートです。
-
-## 利用者ガイド
-
-このテンプレートからリポジトリを作成し、packageと拡張機能metadataを置き換え、`src/extension.ts`でブロックを実装し、生成済みartifactをコミットします。
-
-参照用にtemplate packageを使う場合はversionを固定します。
-
-```bash
-pnpm add --save-exact @kubohiroya/turbowarp-extension-template@0.4.0
-```
+unsandboxed TurboWarp機能拡張間で共有する、runtime-neutralなNamed Data契約とregistryです。
 
 ## できること
 
-- TurboWarp互換の単一JavaScript拡張ファイルをビルドします。
-- 決定的な`dist/extension-manifest.json` API契約を出力します。
-- `src/block-definitions.json`からREADMEのブロック参照を生成します。
-- source、document、生成済み`dist/`、repository policy、npm package内容を一括検査します。
+- `namespace + name + kind + scope`の参照をproviderへ解決します。
+- payloadをregistryへ複製せず、metadataとbyte列／stream bodyを公開します。
+- version付き`Symbol.for`を使い、別々にbundleされた機能拡張から同じregistryを取得できます。
+- target scopeとproject scopeを分離し、project停止時にsession resourceを解放します。
+- namespace衝突や互換性のないserviceを安定した`NAMED_DATA_*` codeで拒否します。
 
 ## 要件と安全性
 
-- Node.js 22以上
-- Corepack経由のpnpm
-- `unsandboxed: true`を設定した拡張機能ではTurboWarpのunsandboxed extension option
+TurboWarpのunsandboxed extension modeが必要です。MVP feature flagは起動時固定かつ既定OFFです。bundleのload前にhostが明示的に設定します。
 
-信頼できる生成済み拡張コードだけを読み込んでください。unsandboxed extensionはブラウザページへアクセスできます。
+```js
+globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__ = {NAMED_DATA_REGISTRY_MVP: true};
+```
+
+registryが保持するのはprovider descriptor、metadata、release callbackだけです。bodyのbyte列やstreamをregistry、manifest、fixtureへ保存しません。
 
 ## インストール
 
 ```bash
-corepack enable
-pnpm install --frozen-lockfile
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.1.0
 ```
 
-## クイックスタート
+feature flagの設定後に`dist/named-data.js`をTurboWarpへloadします。providerは`src/contract.ts`の契約に従い、`installNamedDataRegistry(runtime)`または`getNamedDataRegistry(runtime)`で共有serviceへ接続します。
 
-1. このテンプレートからリポジトリを作成します。
-2. `package.json` metadataと`repo-policy.json`を更新します。
-3. `src/config.ts`を編集します。
-4. `src/block-definitions.json`にブロックを定義します。
-5. `src/extension.ts`に実行時の動作を実装します。
-6. `pnpm run docs`を実行します。
-7. `pnpm run check`を実行します。
+他packageはside effectのないESM entrypointと型宣言を利用します。
 
-開発中に継続ビルドする場合:
-
-```bash
-pnpm run dev
+```ts
+import {
+  installNamedDataRegistry,
+  type NamedDataProvider,
+  type NamedDataReference
+} from '@kubohiroya/turbowarp-named-data/composition';
 ```
 
-## ブロック参照
+package exportは`dist/composition.js`へ解決され、型は`dist/types/composition.d.ts`から提供されます。このentrypointをimportしてもTurboWarp extensionは登録されません。
 
-### `hello [NAME]`
+## ブロック
 
-指定された名前へのローカライズ可能な挨拶を返します。
+MVPが有効な場合だけ、registryの利用可否を確認するBoolean blockを表示します。provider登録とbody accessはScratch value blockではなく、機能拡張間APIです。
 
-| Property | Value |
-|---|---|
-| Type | Reporter |
-| Opcode | `hello` |
-| `NAME` | String, default: `world` |
+## 契約概要
 
-## 重要な動作
+- kind: `structured`、`document`、`binary`、`asset`
+- scope: `target`、`project`
+- representation: `json`、`yaml`、`html`、`markdown`、`raw`
+- body: `Uint8Array`または`ReadableStream<Uint8Array>`
+- revision: 解釈しないopaque string
+- 共有symbol: `@kubohiroya/turbowarp-named-data/registry/2.0`
 
-```text
-TypeScript source
-  -> Vite
-  -> vite-plugin-turbowarp-extension
-  -> dist/<extension-name>.js
-
-Extension config + block definitions
-  -> extension manifest plugin
-  -> dist/extension-manifest.json
-```
-
-生成されるJavaScriptは、Extension Gallery metadataと標準の`(function (Scratch) { ... })(Scratch);` wrapperを持つ、単一の非minify TurboWarp拡張ファイルです。
-
-各ビルドは`formatVersion: 1`の`dist/extension-manifest.json`を出力します。このファイルには、拡張機能ID、ブロックopcodeと種類、引数IDと種類、メニュー参照が決定的な順序で記録されます。`sb3-toolchain`のようなツールは、埋め込み拡張機能の更新やID移行前にこの契約を比較できます。v1契約については[アーキテクチャ文書](docs/architecture.ja.md)と[JSON Schema](schemas/extension-manifest.schema.json)を参照してください。
-
-## 互換性
-
-canonical READMEは`README.md`です。日本語ドキュメントは`README.ja.md`を使います。新規リポジトリでは`README_ja.md`を作成しません。
-
-リポジトリ固有の差分は`repo-policy.json`に記録します。upstream fork、mixed-license content、legacy package name、third-party bundleは、検査を弱めるのではなくpolicy例外として表現します。
+[アーキテクチャ](docs/architecture.ja.md)、[参照schema](schemas/named-data-reference.schema.json)、[extension manifest schema](schemas/extension-manifest.schema.json)も参照してください。
 
 ## 開発
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm run check
 ```
 
-このcheckは型検査、lint、test、生成README検証、`dist/`再現性、repository policy検証、npm package dry-runを実行します。
-
-## リリース
-
-`package.json`をversionの正本にします。公開前に次を実行します。
-
-```bash
-pnpm run check
-npm pack --dry-run --ignore-scripts
-```
-
-release artifactには`dist/example-extension.js`、`dist/extension-manifest.json`、`README.md`、`README.ja.md`、`LICENSE`を含めます。
+生成artifactには`dist/named-data.js`、`dist/composition.js`、`dist/types/`、`dist/extension-manifest.json`を含みます。
 
 ## ライセンス
 

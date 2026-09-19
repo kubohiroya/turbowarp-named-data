@@ -39,7 +39,11 @@ const next = readme.replace(
   new RegExp(`${escapeRegExp(START)}[\\s\\S]*?${escapeRegExp(END)}`),
   replacement
 );
-await writeFile(readmeUrl, next);
+if (process.argv.includes('--check')) {
+  if (next !== readme) throw new Error('README.md generated block reference is not up to date.');
+} else {
+  await writeFile(readmeUrl, next);
+}
 
 function renderBlock(block: BlockDefinition): string {
   const rows = [

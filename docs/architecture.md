@@ -2,43 +2,37 @@
 
 [日本語](architecture.ja.md)
 
-## Build outputs
+## Runtime contract
 
-The project keeps runtime behavior and compatibility metadata separate while generating both from
-the same checked-in source definitions.
+The registry is stored on the TurboWarp runtime with `Symbol.for('@kubohiroya/turbowarp-named-data/registry/2.0')`. Re-loading a compatible bundle returns the same object. A malformed or incompatible object in that versioned slot is rejected and never overwritten. Contract v2 requires `nativeRepresentation` and never reuses the legacy v1 slot.
+
+Providers own all payload and storage state. The registry owns only namespace registrations and release callbacks for currently open bodies. `openBody` returns bytes or a stream directly to the consumer. Metadata keeps `nativeRepresentation` (the stored type) separate from `representation` (the selected output), and the registry validates both against the data kind. A reference or metadata document must never contain inline bytes, base64, or a data URL.
+
+## Package entrypoints
+
+`dist/named-data.js` is the TurboWarp IIFE and performs extension registration. `@kubohiroya/turbowarp-named-data/composition` is a separate, side-effect-free ESM entrypoint for providers and consumers. It exports the canonical contract, registry functions, and feature-flag declarations from `dist/composition.js`; TypeScript resolves its declarations from `dist/types/composition.d.ts`.
+
+## Resolution
 
 ```text
-src/index.ts + src/extension.ts
-  -> vite-plugin-turbowarp-extension
-  -> dist/<extension>.js
-
-src/config.ts + src/block-definitions.json
-  -> extension-api-manifest Vite plugin
-  -> dist/extension-manifest.json
+reference + representation + target/project context
+  -> namespace provider
+  -> canResolve
+  -> stat or openBody
+  -> metadata + borrowed body
+  -> release
 ```
 
-The manifest plugin runs in Vite's post-build phase. This preserves the JavaScript plugin's
-single-output validation and adds the manifest only after the TurboWarp bundle is complete.
+Target-scoped references require a target identity; project-scoped references require a project identity. The two contexts are not substituted for each other. Revisions are opaque strings.
 
-## Extension API manifest v1
+## Lifetime
 
-`schemas/extension-manifest.schema.json` is the normative JSON Schema. `formatVersion` is `1` and
-must change when an incompatible manifest shape is introduced.
+Registrations are session-scoped unless explicitly persistent. `PROJECT_STOP_ALL` releases every open handle, unregisters and releases session providers, and asks persistent providers to clear project-session state. Release operations are idempotent.
 
-The v1 contract contains:
+## Rollout and rollback
 
-- the TurboWarp extension ID;
-- each block opcode and block type;
-- each argument ID, argument type, and optional menu reference;
-- each menu ID and whether it accepts reporter blocks.
+`NAMED_DATA_REGISTRY_MVP` is read once at bundle startup and defaults to false. With the flag off, the extension does not publish a registry service or blocks. Rollback therefore consists of restoring the default/off flag; private registries in consuming extensions remain usable.
 
-Blocks, arguments, and menus are sorted by their identifiers before serialization. Text,
-descriptions, default values, and static menu items are intentionally excluded because they do not
-identify saved-project API references. A compatibility checker can therefore distinguish API
-changes from documentation or localization changes.
+## Manifest and schemas
 
-## Drift detection
-
-`dist/` is committed as a release artifact. `npm run check:dist` rebuilds both files and fails when
-Git reports any modified, deleted, or untracked file below `dist/`. This catches manifest and bundle
-drift in local checks and CI.
+Extension manifest format 2 declares the runtime service ID, contract version, versioned symbol key, feature flag, and default state. `schemas/named-data-reference.schema.json` is the wire-safe descriptor schema; runtime-only target/project identities and payload are intentionally absent.

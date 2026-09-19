@@ -18,6 +18,9 @@ interface PackageMetadata {
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
+  exports?: Record<string, unknown>;
+  unpkg?: string;
+  jsdelivr?: string;
 }
 
 interface RepoPolicy {
@@ -74,7 +77,7 @@ process.stdout.write('Repository policy is aligned.\n');
 
 function checkPolicy() {
   if (policy.schemaVersion !== 1) errors.push('repo-policy.json schemaVersion must be 1');
-  if (policy.productName !== 'TurboWarp-Extension-Template') {
+  if (policy.productName !== 'TurboWarp-Named-Data') {
     errors.push('repo-policy.json productName must match README.md H1');
   }
   if (policy.licensePolicy !== 'mpl-2.0') {
@@ -103,10 +106,22 @@ function checkPackageMetadata() {
   if (packageMetadata.engines?.node !== '>=22.18.0') {
     errors.push('package.json engines.node must be >=22.18.0');
   }
-  if (packageMetadata.repository?.url !== 'git+https://github.com/kubohiroya/turbowarp-extension-template.git') {
+  const compositionExport = packageMetadata.exports?.['./composition'] as
+    | {types?: string; import?: string}
+    | undefined;
+  if (compositionExport?.types !== './dist/types/composition.d.ts') {
+    errors.push('package.json ./composition types must point to dist/types/composition.d.ts');
+  }
+  if (compositionExport?.import !== './dist/composition.js') {
+    errors.push('package.json ./composition import must point to dist/composition.js');
+  }
+  if (packageMetadata.unpkg !== './dist/named-data.js' || packageMetadata.jsdelivr !== './dist/named-data.js') {
+    errors.push('package.json CDN entries must point to dist/named-data.js');
+  }
+  if (packageMetadata.repository?.url !== 'git+https://github.com/kubohiroya/turbowarp-named-data.git') {
     errors.push('package.json repository.url must point to the current repository');
   }
-  if (packageMetadata.bugs?.url !== 'https://github.com/kubohiroya/turbowarp-extension-template/issues') {
+  if (packageMetadata.bugs?.url !== 'https://github.com/kubohiroya/turbowarp-named-data/issues') {
     errors.push('package.json bugs.url must point to the current issue tracker');
   }
   for (const file of policy.requiredFiles) {
@@ -145,7 +160,7 @@ function checkReadmes() {
     errors.push('README.md must include a version-pinned package example');
   }
   if (!readme.includes('MPL-2.0')) errors.push('README.md License section must include MPL-2.0');
-  if (!readmeJa.startsWith('# TurboWarp-Extension-Template\n')) {
+  if (!readmeJa.startsWith('# TurboWarp-Named-Data\n')) {
     errors.push('README.ja.md must mirror the product H1');
   }
 }
@@ -179,8 +194,17 @@ async function checkPackContents() {
   for (const file of policy.requiredFiles) {
     if (!files.has(file)) errors.push(`npm pack must include ${file}`);
   }
-  if (!files.has('dist/example-extension.js')) {
+  if (!files.has('dist/named-data.js')) {
     errors.push('npm pack must include the generated extension bundle');
+  }
+  for (const file of [
+    'dist/composition.js',
+    'dist/types/composition.d.ts',
+    'dist/types/contract.d.ts',
+    'dist/types/feature-flags.d.ts',
+    'dist/types/registry.d.ts'
+  ]) {
+    if (!files.has(file)) errors.push(`npm pack must include ${file}`);
   }
   await access('pnpm-lock.yaml');
 }

@@ -1,59 +1,47 @@
-import {extensionConfig} from './config';
 import definitions from './block-definitions.json';
+import {extensionConfig} from './config.js';
+import type {NamedDataRegistryService} from './contract.js';
+import {FEATURE_FLAGS, type NamedDataFeatureFlags} from './feature-flags.js';
+import {bindNamedDataRegistryLifecycle, installNamedDataRegistry} from './registry.js';
 
-type BlockTypeName = 'REPORTER';
-type ArgumentTypeName = 'STRING';
+export class NamedDataExtension implements TurboWarpExtension {
+  private readonly registry?: NamedDataRegistryService;
+  private readonly unbindLifecycle?: () => void;
 
-interface DefinitionArgument {
-  type: ArgumentTypeName;
-  defaultValue: string;
-}
+  public constructor(
+    runtime: ScratchRuntime,
+    featureFlags: NamedDataFeatureFlags = FEATURE_FLAGS
+  ) {
+    if (featureFlags.NAMED_DATA_REGISTRY_MVP) {
+      this.registry = installNamedDataRegistry(runtime);
+      this.unbindLifecycle = bindNamedDataRegistryLifecycle(runtime, this.registry);
+    }
+  }
 
-interface BlockDefinition {
-  opcode: string;
-  blockType: BlockTypeName;
-  text: string;
-  description: string;
-  arguments: Record<string, DefinitionArgument>;
-}
-
-const blockDefinitions = definitions.blocks as readonly BlockDefinition[];
-
-export class ExampleExtension implements TurboWarpExtension {
   public getInfo(): Record<string, unknown> {
     return {
       id: extensionConfig.id,
       name: Scratch.translate(definitions.extensionName),
       docsURI: extensionConfig.docsURI,
       blockIconURI: extensionConfig.blockIconURI,
-      blocks: blockDefinitions.map((block) => this.toScratchBlock(block))
+      blocks: this.registry
+        ? [
+            {
+              opcode: 'isRegistryAvailable',
+              blockType: Scratch.BlockType.BOOLEAN,
+              text: Scratch.translate('named data registry available?')
+            }
+          ]
+        : []
     };
   }
 
-  public hello(args: {NAME: unknown}): string {
-    return Scratch.translate(
-      {
-        default: 'Hello, {name}!',
-        description: '{name} is replaced with the value supplied to the block.'
-      },
-      {name: Scratch.Cast.toString(args.NAME)}
-    );
+  public isRegistryAvailable(): boolean {
+    return this.registry !== undefined;
   }
 
-  private toScratchBlock(block: BlockDefinition): Record<string, unknown> {
-    return {
-      opcode: block.opcode,
-      blockType: Scratch.BlockType[block.blockType],
-      text: Scratch.translate(block.text),
-      arguments: Object.fromEntries(
-        Object.entries(block.arguments).map(([name, argument]) => [
-          name,
-          {
-            type: Scratch.ArgumentType[argument.type],
-            defaultValue: argument.defaultValue
-          }
-        ])
-      )
-    };
+  /** Used by hosts that unload extensions without stopping the project. */
+  public dispose(): void {
+    this.unbindLifecycle?.();
   }
 }

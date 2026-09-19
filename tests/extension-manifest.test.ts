@@ -1,5 +1,11 @@
 import {describe, expect, it} from 'vitest';
 import schema from '../schemas/extension-manifest.schema.json';
+import definitions from '../src/block-definitions.json';
+import {extensionConfig} from '../src/config.js';
+import {
+  NAMED_DATA_CONTRACT_VERSION,
+  NAMED_DATA_REGISTRY_SYMBOL_KEY
+} from '../src/contract.js';
 import {
   createExtensionManifest,
   EXTENSION_MANIFEST_FORMAT_VERSION,
@@ -20,6 +26,20 @@ describe('extension API manifest', () => {
 
   it('keeps the JSON Schema format version aligned with the generator', () => {
     expect(schema.properties.formatVersion.const).toBe(EXTENSION_MANIFEST_FORMAT_VERSION);
+  });
+
+  it('publishes the same versioned runtime service as the TypeScript contract', () => {
+    const manifest = createExtensionManifest(extensionConfig.id, definitions);
+    expect(manifest.runtimeServices).toEqual([
+      {
+        id: 'named-data-registry',
+        contractVersion: NAMED_DATA_CONTRACT_VERSION,
+        symbolKey: NAMED_DATA_REGISTRY_SYMBOL_KEY,
+        featureFlag: 'NAMED_DATA_REGISTRY_MVP',
+        defaultEnabled: false
+      }
+    ]);
+    expect(JSON.stringify(manifest)).not.toMatch(/"(body|bytes|base64)"/u);
   });
 
   it('rejects duplicate opcodes', () => {
