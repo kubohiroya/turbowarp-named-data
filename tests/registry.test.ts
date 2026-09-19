@@ -19,7 +19,10 @@ const targetReference: NamedDataReference = {
   namespace: 'structured', name: 'profile', kind: 'structured', scope: 'target'
 };
 
-function provider(namespace = 'structured'): NamedDataProvider & {
+function provider(
+  namespace = 'structured',
+  kind: NamedDataProvider['kind'] = 'structured'
+): NamedDataProvider & {
   releaseMock: ReturnType<typeof vi.fn>;
   bodyRelease: ReturnType<typeof vi.fn>;
   clearSessionMock: ReturnType<typeof vi.fn>;
@@ -32,7 +35,7 @@ function provider(namespace = 'structured'): NamedDataProvider & {
     byteLength: 2, revision: 'opaque:r7', replayable: true
   });
   return {
-    namespace, kind: 'structured', canResolve: () => true,
+    namespace, kind, canResolve: () => true,
     stat: (reference, representation) => metadata(reference, representation),
     openBody: (reference, representation): NamedDataBody => ({
       ...metadata(reference, representation), body: new Uint8Array([123, 125]), release: bodyRelease
@@ -43,7 +46,7 @@ function provider(namespace = 'structured'): NamedDataProvider & {
 }
 
 describe('NamedDataRegistry', () => {
-  it('shares one versioned registry between independent callers', () => {
+  it('shares one registry between independent callers', () => {
     const runtime = {};
     const first = installNamedDataRegistry(runtime);
     expect(installNamedDataRegistry(runtime)).toBe(first);
@@ -51,35 +54,76 @@ describe('NamedDataRegistry', () => {
     expect(Object.getOwnPropertySymbols(runtime)).toContain(NAMED_DATA_REGISTRY_SYMBOL);
   });
 
-  it('rejects an incompatible value in the versioned runtime slot', () => {
-    const runtime = {[NAMED_DATA_REGISTRY_SYMBOL]: {contractVersion: '2.0'}};
+  it('rejects an invalid value in the shared runtime slot', () => {
+    const runtime = {[NAMED_DATA_REGISTRY_SYMBOL]: {}};
     expect(() => installNamedDataRegistry(runtime)).toThrowError(
-      expect.objectContaining({code: 'NAMED_DATA_INCOMPATIBLE_VERSION'})
+      expect.objectContaining({code: 'NAMED_DATA_INVALID_REGISTRY'})
     );
   });
 
   it('rejects a registry-shaped value with missing service methods', () => {
     const runtime = {
       [NAMED_DATA_REGISTRY_SYMBOL]: {
-        contractVersion: '2.0',
-        symbolKey: '@kubohiroya/turbowarp-named-data/registry/2.0'
+        registerProvider: () => undefined
       }
     };
     expect(() => getNamedDataRegistry(runtime)).toThrowError(
-      expect.objectContaining({code: 'NAMED_DATA_INCOMPATIBLE_VERSION'})
+      expect.objectContaining({code: 'NAMED_DATA_INVALID_REGISTRY'})
     );
   });
 
-  it('rejects duplicate namespaces and releases on unregister', async () => {
+  it('rejects a duplicate namespace-kind provider and releases on unregister', async () => {
     const registry = new NamedDataRegistry();
     const first = provider();
     const registration = registry.registerProvider(first);
     expect(() => registry.registerProvider(provider())).toThrowError(
-      expect.objectContaining({code: 'NAMED_DATA_NAMESPACE_CONFLICT'})
+      expect.objectContaining({code: 'NAMED_DATA_PROVIDER_CONFLICT'})
     );
     await registration.unregister();
     await registration.unregister();
     expect(first.releaseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches different kinds registered in the same namespace', async () => {
+    const registry = new NamedDataRegistry();
+    const structured = provider('shared', 'structured');
+    const asset = provider('shared', 'asset');
+    registry.registerProvider(structured);
+    registry.registerProvider(asset);
+
+    const structuredReference = {...targetReference, namespace: 'shared'};
+    const assetReference = {...targetReference, namespace: 'shared', kind: 'asset' as const};
+    await expect(
+      registry.stat(structuredReference, 'json', {target: {}})
+    ).resolves.toMatchObject({reference: structuredReference});
+    await expect(
+      registry.stat(assetReference, 'raw', {target: {}})
+    ).resolves.toMatchObject({reference: assetReference});
+  });
+
+  it('unregisters and releases handles for only one namespace-kind pair', async () => {
+    const registry = new NamedDataRegistry();
+    const structured = provider('shared', 'structured');
+    const asset = provider('shared', 'asset');
+    const structuredRegistration = registry.registerProvider(structured);
+    registry.registerProvider(asset);
+    await registry.openBody(
+      {...targetReference, namespace: 'shared'},
+      'json',
+      {target: {}}
+    );
+    await registry.openBody(
+      {...targetReference, namespace: 'shared', kind: 'asset'},
+      'raw',
+      {target: {}}
+    );
+
+    await structuredRegistration.unregister();
+
+    expect(structured.bodyRelease).toHaveBeenCalledWith('shutdown');
+    expect(asset.bodyRelease).not.toHaveBeenCalled();
+    expect(registry.canResolve({...targetReference, namespace: 'shared'}, 'json')).toBe(false);
+    expect(registry.canResolve({...targetReference, namespace: 'shared', kind: 'asset'}, 'raw')).toBe(true);
   });
 
   it('releases namespace handles before unregistering their provider', async () => {
@@ -196,6 +240,19 @@ describe('NamedDataRegistry', () => {
 
     expect(runtime.on).toHaveBeenCalledOnce();
     unbindSecond();
+  });
+
+  it('rejects an invalid shared lifecycle binding', () => {
+    const registry = new NamedDataRegistry();
+    const runtime = {
+      on: vi.fn(),
+      [Symbol.for('@kubohiroya/turbowarp-named-data/lifecycle')]: {registry}
+    };
+
+    expect(() => bindNamedDataRegistryLifecycle(runtime, registry)).toThrowError(
+      expect.objectContaining({code: 'NAMED_DATA_INVALID_REGISTRY'})
+    );
+    expect(runtime.on).not.toHaveBeenCalled();
   });
 
   it('normalizes compatible provider error codes and masks arbitrary failures', async () => {

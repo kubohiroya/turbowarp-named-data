@@ -1,5 +1,4 @@
 import {
-  NAMED_DATA_CONTRACT_VERSION,
   NAMED_DATA_REGISTRY_MVP_DEFAULT,
   NamedDataError,
   type NamedDataBody,
@@ -52,6 +51,5 @@ const provider: NamedDataProvider = {
 registry.registerProvider(provider);
 void registry.stat(reference, 'html', context);
 void sameRegistry;
-void NAMED_DATA_CONTRACT_VERSION;
 void NAMED_DATA_REGISTRY_MVP_DEFAULT;
 void NamedDataError;

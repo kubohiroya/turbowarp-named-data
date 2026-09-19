@@ -1,7 +1,5 @@
 import { type NamedDataBody, type NamedDataMetadata, type NamedDataProvider, type NamedDataProviderRegistration, type NamedDataReference, type NamedDataRegistryService, type NamedDataRepresentation, type NamedDataResolveContext } from './contract.js';
 export declare class NamedDataRegistry implements NamedDataRegistryService {
-    readonly contractVersion: "2.0";
-    readonly symbolKey: "@kubohiroya/turbowarp-named-data/registry/2.0";
     private readonly providers;
     /** Only release callbacks are retained here; body payloads are never retained. */
     private readonly handles;
@@ -13,7 +11,7 @@ export declare class NamedDataRegistry implements NamedDataRegistryService {
     openBody(reference: NamedDataReference, representation: NamedDataRepresentation, context?: NamedDataResolveContext): Promise<NamedDataBody>;
     clearSession(): Promise<void>;
     private resolveProvider;
-    private releaseHandlesForNamespace;
+    private releaseHandlesForProvider;
 }
 export declare function installNamedDataRegistry(runtime: object): NamedDataRegistryService;
 export declare function getNamedDataRegistry(runtime: object): NamedDataRegistryService | undefined;

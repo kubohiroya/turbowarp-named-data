@@ -21,7 +21,6 @@ export interface ExtensionManifestMenu {
 
 export interface ExtensionManifestRuntimeService {
   id: string;
-  contractVersion: string;
   symbolKey: string;
   featureFlag: string;
   defaultEnabled: boolean;
@@ -90,10 +89,6 @@ function normalizeRuntimeServices(value: unknown): ExtensionManifestRuntimeServi
       }
       return {
         id,
-        contractVersion: requireNonEmptyString(
-          service.contractVersion,
-          `Runtime service ${id} contractVersion`
-        ),
         symbolKey: requireNonEmptyString(service.symbolKey, `Runtime service ${id} symbolKey`),
         featureFlag: requireNonEmptyString(service.featureFlag, `Runtime service ${id} featureFlag`),
         defaultEnabled

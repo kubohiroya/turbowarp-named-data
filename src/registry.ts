@@ -1,5 +1,4 @@
 import {
-  NAMED_DATA_CONTRACT_VERSION,
   NAMED_DATA_ERROR_CODES,
   NAMED_DATA_KINDS,
   NAMED_DATA_REGISTRY_SYMBOL,
@@ -7,6 +6,7 @@ import {
   NAMED_DATA_REPRESENTATIONS,
   NAMED_DATA_SCOPES,
   NamedDataError,
+  isNamedDataNamespace,
   type NamedDataBody,
   type NamedDataErrorCode,
   type NamedDataMetadata,
@@ -28,6 +28,7 @@ interface ProviderEntry {
 
 interface OpenHandle {
   readonly namespace: string;
+  readonly kind: NamedDataReference['kind'];
   readonly release: (reason?: NamedDataReleaseReason) => void | Promise<void>;
 }
 
@@ -37,14 +38,10 @@ interface LifecycleBinding {
   references: number;
 }
 
-const LIFECYCLE_SYMBOL = Symbol.for('@kubohiroya/turbowarp-named-data/lifecycle/2.0');
-
-const NAMESPACE_PATTERN = /^[a-z][a-z0-9.-]{0,63}$/u;
+const LIFECYCLE_SYMBOL = Symbol.for('@kubohiroya/turbowarp-named-data/lifecycle');
 const errorCodes = new Set<string>(NAMED_DATA_ERROR_CODES);
 
 export class NamedDataRegistry implements NamedDataRegistryService {
-  public readonly contractVersion = NAMED_DATA_CONTRACT_VERSION;
-  public readonly symbolKey = NAMED_DATA_REGISTRY_SYMBOL_KEY;
   private readonly providers = new Map<string, ProviderEntry>();
   /** Only release callbacks are retained here; body payloads are never retained. */
   private readonly handles = new Set<OpenHandle>();
@@ -54,26 +51,28 @@ export class NamedDataRegistry implements NamedDataRegistryService {
     options: {readonly lifetime?: 'session' | 'persistent'} = {}
   ): NamedDataProviderRegistration {
     requireNamespace(provider.namespace);
-    if (this.providers.has(provider.namespace)) {
-      throw new NamedDataError(
-        'NAMED_DATA_NAMESPACE_CONFLICT',
-        `Namespace is already registered: ${provider.namespace}`
-      );
-    }
     if (!NAMED_DATA_KINDS.includes(provider.kind)) {
       throw new NamedDataError('NAMED_DATA_INVALID_REF', `Unknown provider kind: ${provider.kind}`);
     }
+    const key = providerKey(provider.namespace, provider.kind);
+    if (this.providers.has(key)) {
+      throw new NamedDataError(
+        'NAMED_DATA_PROVIDER_CONFLICT',
+        `Provider is already registered: ${provider.namespace}/${provider.kind}`
+      );
+    }
     const entry = {provider, lifetime: options.lifetime ?? 'session'} as const;
-    this.providers.set(provider.namespace, entry);
+    this.providers.set(key, entry);
     let active = true;
     return {
       namespace: provider.namespace,
+      kind: provider.kind,
       unregister: async () => {
         if (!active) return;
         active = false;
-        if (this.providers.get(provider.namespace) === entry) {
-          this.providers.delete(provider.namespace);
-          await this.releaseHandlesForNamespace(provider.namespace);
+        if (this.providers.get(key) === entry) {
+          this.providers.delete(key);
+          await this.releaseHandlesForProvider(provider.namespace, provider.kind);
           await provider.release('shutdown');
         }
       }
@@ -86,8 +85,8 @@ export class NamedDataRegistry implements NamedDataRegistryService {
   ): boolean {
     try {
       validateReferenceShape(reference, representation);
-      const provider = this.providers.get(reference.namespace)?.provider;
-      return provider?.kind === reference.kind && provider.canResolve(reference, representation);
+      const provider = this.providers.get(providerKey(reference.namespace, reference.kind))?.provider;
+      return provider?.canResolve(reference, representation) ?? false;
     } catch {
       return false;
     }
@@ -137,6 +136,7 @@ export class NamedDataRegistry implements NamedDataRegistryService {
     let abortListener: (() => void) | undefined;
     const tracked: OpenHandle = {
       namespace: reference.namespace,
+      kind: reference.kind,
       release: async (reason = 'complete') => {
         if (released) return;
         released = true;
@@ -195,17 +195,16 @@ export class NamedDataRegistry implements NamedDataRegistryService {
     context: NamedDataResolveContext
   ): NamedDataProvider {
     validateReference(reference, representation, context);
-    const provider = this.providers.get(reference.namespace)?.provider;
+    const provider = this.providers.get(providerKey(reference.namespace, reference.kind))?.provider;
     if (!provider) {
-      throw new NamedDataError(
-        'NAMED_DATA_PROVIDER_NOT_FOUND',
-        `No provider can resolve namespace: ${reference.namespace}`
+      const hasNamespace = [...this.providers.values()].some(
+        (entry) => entry.provider.namespace === reference.namespace
       );
-    }
-    if (provider.kind !== reference.kind) {
       throw new NamedDataError(
-        'NAMED_DATA_KIND_MISMATCH',
-        `Provider kind ${provider.kind} does not match ${reference.kind}.`
+        hasNamespace ? 'NAMED_DATA_KIND_MISMATCH' : 'NAMED_DATA_PROVIDER_NOT_FOUND',
+        hasNamespace
+          ? `No provider for kind ${reference.kind} is registered in namespace ${reference.namespace}.`
+          : `No provider can resolve namespace: ${reference.namespace}`
       );
     }
     if (!provider.canResolve(reference, representation)) {
@@ -217,8 +216,13 @@ export class NamedDataRegistry implements NamedDataRegistryService {
     return provider;
   }
 
-  private async releaseHandlesForNamespace(namespace: string): Promise<void> {
-    const handles = [...this.handles].filter((handle) => handle.namespace === namespace);
+  private async releaseHandlesForProvider(
+    namespace: string,
+    kind: NamedDataReference['kind']
+  ): Promise<void> {
+    const handles = [...this.handles].filter(
+      (handle) => handle.namespace === namespace && handle.kind === kind
+    );
     await Promise.allSettled(handles.map((handle) => handle.release('shutdown')));
   }
 }
@@ -247,11 +251,11 @@ export function bindNamedDataRegistryLifecycle(
   registry: NamedDataRegistryService
 ): () => void {
   const host = runtime as typeof runtime & {[LIFECYCLE_SYMBOL]?: unknown};
-  const existing = host[LIFECYCLE_SYMBOL] as LifecycleBinding | undefined;
+  const existing = host[LIFECYCLE_SYMBOL];
   if (existing !== undefined) {
-    if (existing.registry !== registry) {
+    if (!isLifecycleBinding(existing) || existing.registry !== registry) {
       throw new NamedDataError(
-        'NAMED_DATA_INCOMPATIBLE_VERSION',
+        'NAMED_DATA_INVALID_REGISTRY',
         'Runtime already has a lifecycle binding for a different registry.'
       );
     }
@@ -270,6 +274,17 @@ export function bindNamedDataRegistryLifecycle(
     value: binding
   });
   return lifecycleUnbind(runtime, host, binding);
+}
+
+function isLifecycleBinding(value: unknown): value is LifecycleBinding {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<LifecycleBinding>;
+  return (
+    isCompatibleRegistry(candidate.registry) &&
+    typeof candidate.listener === 'function' &&
+    Number.isSafeInteger(candidate.references) &&
+    (candidate.references ?? -1) >= 0
+  );
 }
 
 function lifecycleUnbind(
@@ -293,8 +308,8 @@ function lifecycleUnbind(
 function requireCompatibleRegistry(value: unknown): NamedDataRegistryService {
   if (isCompatibleRegistry(value)) return value;
   throw new NamedDataError(
-    'NAMED_DATA_INCOMPATIBLE_VERSION',
-    `Runtime slot ${NAMED_DATA_REGISTRY_SYMBOL_KEY} contains an incompatible service.`
+    'NAMED_DATA_INVALID_REGISTRY',
+    `Runtime slot ${NAMED_DATA_REGISTRY_SYMBOL_KEY} contains an invalid registry.`
   );
 }
 
@@ -303,8 +318,6 @@ function isCompatibleRegistry(value: unknown): value is NamedDataRegistryService
   try {
     const candidate = value as Partial<NamedDataRegistryService>;
     return (
-      candidate.contractVersion === NAMED_DATA_CONTRACT_VERSION &&
-      candidate.symbolKey === NAMED_DATA_REGISTRY_SYMBOL_KEY &&
       typeof candidate.registerProvider === 'function' &&
       typeof candidate.canResolve === 'function' &&
       typeof candidate.stat === 'function' &&
@@ -385,9 +398,13 @@ function isNativeRepresentation(
 }
 
 function requireNamespace(namespace: string): void {
-  if (typeof namespace !== 'string' || !NAMESPACE_PATTERN.test(namespace)) {
+  if (!isNamedDataNamespace(namespace)) {
     throw invalidReference('Invalid namespace.');
   }
+}
+
+function providerKey(namespace: string, kind: NamedDataReference['kind']): string {
+  return `${namespace}\0${kind}`;
 }
 
 function containsControlCharacter(value: string): boolean {

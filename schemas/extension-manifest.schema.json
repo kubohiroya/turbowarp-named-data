@@ -50,10 +50,9 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "contractVersion", "symbolKey", "featureFlag", "defaultEnabled"],
+        "required": ["id", "symbolKey", "featureFlag", "defaultEnabled"],
         "properties": {
           "id": {"type": "string", "minLength": 1},
-          "contractVersion": {"type": "string", "minLength": 1},
           "symbolKey": {"type": "string", "minLength": 1},
           "featureFlag": {"type": "string", "minLength": 1},
           "defaultEnabled": {"type": "boolean"}

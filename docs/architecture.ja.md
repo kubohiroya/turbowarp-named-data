@@ -4,9 +4,9 @@
 
 ## Runtime契約
 
-registryは`Symbol.for('@kubohiroya/turbowarp-named-data/registry/2.0')`を使ってTurboWarp runtimeへ格納します。互換bundleを再loadすると同じobjectを取得します。このversion付きslotに不正または非互換のobjectがある場合は上書きせず拒否します。`nativeRepresentation`を必須化したv2は旧v1 slotを再利用しません。
+registryは`Symbol.for('@kubohiroya/turbowarp-named-data/registry')`を使ってTurboWarp runtimeへ格納します。別bundleを再loadしても同じobjectを取得します。この固定slotに不正なobjectがある場合は上書きせず拒否します。契約の世代管理は行わず、破壊的変更ではproviderとconsumerを同時に更新します。
 
-payloadとstorage stateはproviderが所有します。registryが保持するのはnamespace登録と、open中bodyのrelease callbackだけです。`openBody`はbyte列またはstreamをconsumerへ直接返します。metadataの`nativeRepresentation`は保存時の型、`representation`は今回選択した出力表現を示し、registryはkindとの整合を検証します。参照やmetadataへinline bytes、base64、data URLを含めてはいけません。
+payloadとstorage stateはproviderが所有します。registryが保持するのは`(namespace, kind)`登録と、open中bodyのrelease callbackだけです。namespaceは論理的な所有領域、kindはデータ型であり、同じnamespaceへ異なるkindのproviderを登録できます。`openBody`はbyte列またはstreamをconsumerへ直接返します。metadataの`nativeRepresentation`は保存時の型、`representation`は今回選択した出力表現を示し、registryはkindとの整合を検証します。参照やmetadataへinline bytes、base64、data URLを含めてはいけません。
 
 ## Package entrypoint
 
@@ -16,7 +16,7 @@ payloadとstorage stateはproviderが所有します。registryが保持する�
 
 ```text
 reference + representation + target/project context
-  -> namespace provider
+  -> (namespace, kind) provider
   -> canResolve
   -> stat または openBody
   -> metadata + borrowed body
@@ -35,4 +35,4 @@ target scopeにはtarget identity、project scopeにはproject identityが必要
 
 ## Manifestとschema
 
-Extension manifest format 2はruntime service ID、contract version、version付きsymbol key、feature flag、既定状態を宣言します。`schemas/named-data-reference.schema.json`はwire-safeなdescriptor schemaです。runtime固有のtarget/project identityとpayloadは意図的に含みません。
+Extension manifest format 2はruntime service ID、固定symbol key、feature flag、既定状態を宣言します。`schemas/named-data-reference.schema.json`はwire-safeなdescriptor schemaです。runtime固有のtarget/project identityとpayloadは意図的に含みません。

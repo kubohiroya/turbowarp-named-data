@@ -1,10 +1,11 @@
-export declare const NAMED_DATA_CONTRACT_VERSION: "2.0";
-export declare const NAMED_DATA_REGISTRY_SYMBOL_KEY: "@kubohiroya/turbowarp-named-data/registry/2.0";
+export declare const NAMED_DATA_REGISTRY_SYMBOL_KEY: "@kubohiroya/turbowarp-named-data/registry";
 export declare const NAMED_DATA_REGISTRY_SYMBOL: unique symbol;
+export declare const NAMED_DATA_NAMESPACE_PATTERN: RegExp;
+export declare function isNamedDataNamespace(value: unknown): value is string;
 export declare const NAMED_DATA_KINDS: readonly ["structured", "document", "binary", "asset"];
 export declare const NAMED_DATA_SCOPES: readonly ["target", "project"];
 export declare const NAMED_DATA_REPRESENTATIONS: readonly ["json", "yaml", "html", "markdown", "raw"];
-export declare const NAMED_DATA_ERROR_CODES: readonly ["NAMED_DATA_INVALID_REF", "NAMED_DATA_INCOMPATIBLE_VERSION", "NAMED_DATA_NAMESPACE_CONFLICT", "NAMED_DATA_PROVIDER_NOT_FOUND", "NAMED_DATA_NOT_FOUND", "NAMED_DATA_KIND_MISMATCH", "NAMED_DATA_SCOPE_MISMATCH", "NAMED_DATA_REPRESENTATION_UNSUPPORTED", "NAMED_DATA_INVALID_METADATA", "NAMED_DATA_BODY_TOO_LARGE", "NAMED_DATA_ABORTED", "NAMED_DATA_PROVIDER_RELEASED"];
+export declare const NAMED_DATA_ERROR_CODES: readonly ["NAMED_DATA_INVALID_REF", "NAMED_DATA_INVALID_REGISTRY", "NAMED_DATA_PROVIDER_CONFLICT", "NAMED_DATA_PROVIDER_NOT_FOUND", "NAMED_DATA_NOT_FOUND", "NAMED_DATA_KIND_MISMATCH", "NAMED_DATA_SCOPE_MISMATCH", "NAMED_DATA_REPRESENTATION_UNSUPPORTED", "NAMED_DATA_INVALID_METADATA", "NAMED_DATA_BODY_TOO_LARGE", "NAMED_DATA_ABORTED", "NAMED_DATA_PROVIDER_RELEASED"];
 export type NamedDataKind = (typeof NAMED_DATA_KINDS)[number];
 export type NamedDataScope = (typeof NAMED_DATA_SCOPES)[number];
 export type NamedDataRepresentation = (typeof NAMED_DATA_REPRESENTATIONS)[number];
@@ -53,11 +54,10 @@ export interface NamedDataProvider {
 }
 export interface NamedDataProviderRegistration {
     readonly namespace: string;
+    readonly kind: NamedDataKind;
     unregister(): Promise<void>;
 }
 export interface NamedDataRegistryService {
-    readonly contractVersion: typeof NAMED_DATA_CONTRACT_VERSION;
-    readonly symbolKey: typeof NAMED_DATA_REGISTRY_SYMBOL_KEY;
     registerProvider(provider: NamedDataProvider, options?: {
         readonly lifetime?: 'session' | 'persistent';
     }): NamedDataProviderRegistration;

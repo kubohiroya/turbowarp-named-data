@@ -1,7 +1,12 @@
-export const NAMED_DATA_CONTRACT_VERSION = '2.0' as const;
 export const NAMED_DATA_REGISTRY_SYMBOL_KEY =
-  '@kubohiroya/turbowarp-named-data/registry/2.0' as const;
+  '@kubohiroya/turbowarp-named-data/registry' as const;
 export const NAMED_DATA_REGISTRY_SYMBOL = Symbol.for(NAMED_DATA_REGISTRY_SYMBOL_KEY);
+
+export const NAMED_DATA_NAMESPACE_PATTERN = /^[a-z][a-z0-9.-]{0,63}$/u;
+
+export function isNamedDataNamespace(value: unknown): value is string {
+  return typeof value === 'string' && NAMED_DATA_NAMESPACE_PATTERN.test(value);
+}
 
 export const NAMED_DATA_KINDS = ['structured', 'document', 'binary', 'asset'] as const;
 export const NAMED_DATA_SCOPES = ['target', 'project'] as const;
@@ -9,8 +14,8 @@ export const NAMED_DATA_REPRESENTATIONS = ['json', 'yaml', 'html', 'markdown', '
 
 export const NAMED_DATA_ERROR_CODES = [
   'NAMED_DATA_INVALID_REF',
-  'NAMED_DATA_INCOMPATIBLE_VERSION',
-  'NAMED_DATA_NAMESPACE_CONFLICT',
+  'NAMED_DATA_INVALID_REGISTRY',
+  'NAMED_DATA_PROVIDER_CONFLICT',
   'NAMED_DATA_PROVIDER_NOT_FOUND',
   'NAMED_DATA_NOT_FOUND',
   'NAMED_DATA_KIND_MISMATCH',
@@ -84,12 +89,11 @@ export interface NamedDataProvider {
 
 export interface NamedDataProviderRegistration {
   readonly namespace: string;
+  readonly kind: NamedDataKind;
   unregister(): Promise<void>;
 }
 
 export interface NamedDataRegistryService {
-  readonly contractVersion: typeof NAMED_DATA_CONTRACT_VERSION;
-  readonly symbolKey: typeof NAMED_DATA_REGISTRY_SYMBOL_KEY;
   registerProvider(
     provider: NamedDataProvider,
     options?: {readonly lifetime?: 'session' | 'persistent'}
