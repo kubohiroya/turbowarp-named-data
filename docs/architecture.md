@@ -4,9 +4,9 @@
 
 ## Runtime contract
 
-The registry is stored on the TurboWarp runtime with `Symbol.for('@kubohiroya/turbowarp-named-data/registry/2.0')`. Re-loading a compatible bundle returns the same object. A malformed or incompatible object in that versioned slot is rejected and never overwritten. Contract v2 requires `nativeRepresentation` and never reuses the legacy v1 slot.
+The registry is stored on the TurboWarp runtime with `Symbol.for('@kubohiroya/turbowarp-named-data/registry')`. Separately bundled extensions retrieve the same object. An invalid object in this stable slot is rejected and never overwritten. The contract has no generation number; breaking changes update providers and consumers together.
 
-Providers own all payload and storage state. The registry owns only namespace registrations and release callbacks for currently open bodies. `openBody` returns bytes or a stream directly to the consumer. Metadata keeps `nativeRepresentation` (the stored type) separate from `representation` (the selected output), and the registry validates both against the data kind. A reference or metadata document must never contain inline bytes, base64, or a data URL.
+Providers own all payload and storage state. The registry owns only `(namespace, kind)` registrations and release callbacks for currently open bodies. A namespace is a logical ownership domain while kind is the data type, so providers of different kinds may share one namespace. `openBody` returns bytes or a stream directly to the consumer. Metadata keeps `nativeRepresentation` (the stored type) separate from `representation` (the selected output), and the registry validates both against the data kind. A reference or metadata document must never contain inline bytes, base64, or a data URL.
 
 ## Package entrypoints
 
@@ -16,7 +16,7 @@ Providers own all payload and storage state. The registry owns only namespace re
 
 ```text
 reference + representation + target/project context
-  -> namespace provider
+  -> (namespace, kind) provider
   -> canResolve
   -> stat or openBody
   -> metadata + borrowed body
@@ -35,4 +35,4 @@ Registrations are session-scoped unless explicitly persistent. `PROJECT_STOP_ALL
 
 ## Manifest and schemas
 
-Extension manifest format 2 declares the runtime service ID, contract version, versioned symbol key, feature flag, and default state. `schemas/named-data-reference.schema.json` is the wire-safe descriptor schema; runtime-only target/project identities and payload are intentionally absent.
+Extension manifest format 2 declares the runtime service ID, stable symbol key, feature flag, and default state. `schemas/named-data-reference.schema.json` is the wire-safe descriptor schema; runtime-only target/project identities and payload are intentionally absent.

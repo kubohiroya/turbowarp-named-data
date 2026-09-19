@@ -12,15 +12,15 @@ if (JSON.stringify(files) !== JSON.stringify(expected)) {
 }
 
 const bundle = await readFile('dist/named-data.js', 'utf8');
-if (!bundle.includes('@kubohiroya/turbowarp-named-data/registry/2.0')) {
-  throw new Error('Generated bundle does not contain the versioned registry contract.');
+if (!bundle.includes('@kubohiroya/turbowarp-named-data/registry')) {
+  throw new Error('Generated bundle does not contain the shared registry key.');
 }
 const composition = await readFile('dist/composition.js', 'utf8');
 for (const exportName of [
   'installNamedDataRegistry',
   'getNamedDataRegistry',
   'NamedDataRegistry',
-  'NAMED_DATA_CONTRACT_VERSION'
+  'NAMED_DATA_REGISTRY_SYMBOL_KEY'
 ]) {
   if (!composition.includes(exportName)) {
     throw new Error(`Composition bundle does not export ${exportName}.`);

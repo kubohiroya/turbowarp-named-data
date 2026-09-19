@@ -20,7 +20,7 @@
     "thirdPartyBundle": false
   },
   "migrationChecklist": [
-    "Keep the runtime Symbol key versioned when introducing incompatible contracts.",
+    "Keep one stable runtime Symbol key and update all consumers with breaking contract changes.",
     "Keep the registry payload-free and require explicit release for opened bodies.",
     "Keep NAMED_DATA_REGISTRY_MVP startup-fixed and disabled by default.",
     "Run pnpm run check before publishing generated artifacts."

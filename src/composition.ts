@@ -3,7 +3,6 @@
  * This module is side-effect free and does not register a TurboWarp extension.
  */
 export {
-  NAMED_DATA_CONTRACT_VERSION,
   NAMED_DATA_ERROR_CODES,
   NAMED_DATA_KINDS,
   NAMED_DATA_REGISTRY_SYMBOL,

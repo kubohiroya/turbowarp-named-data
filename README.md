@@ -8,9 +8,9 @@ A shared, runtime-neutral named-data contract and registry for unsandboxed Turbo
 
 - resolves `namespace + name + kind + scope` references through registered providers;
 - exposes metadata and byte/stream bodies without copying payloads into the registry;
-- shares one registry between separately bundled extensions through a versioned `Symbol.for` key;
+- shares one registry between separately bundled extensions through a stable `Symbol.for` key;
 - separates target and project scope and cleans session resources on project stop;
-- rejects namespace collisions and incompatible services with stable `NAMED_DATA_*` codes.
+- rejects duplicate namespace-kind providers and invalid services with stable `NAMED_DATA_*` codes.
 
 ## Requirements and safety
 
@@ -66,7 +66,8 @@ The availability block is shown only while the MVP flag is enabled. Provider reg
 - representations: `json`, `yaml`, `html`, `markdown`, `raw`;
 - body: `Uint8Array` or `ReadableStream<Uint8Array>`;
 - revision: opaque string;
-- shared symbol: `@kubohiroya/turbowarp-named-data/registry/2.0`.
+- provider dispatch key: `(namespace, kind)`; different kinds may share one logical namespace.
+- shared symbol: `@kubohiroya/turbowarp-named-data/registry`.
 
 See [Architecture](docs/architecture.md), the [reference schema](schemas/named-data-reference.schema.json), and the [extension manifest schema](schemas/extension-manifest.schema.json).
 

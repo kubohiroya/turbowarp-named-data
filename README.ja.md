@@ -8,9 +8,9 @@ unsandboxed TurboWarp機能拡張間で共有する、runtime-neutralなNamed Da
 
 - `namespace + name + kind + scope`の参照をproviderへ解決します。
 - payloadをregistryへ複製せず、metadataとbyte列／stream bodyを公開します。
-- version付き`Symbol.for`を使い、別々にbundleされた機能拡張から同じregistryを取得できます。
+- 固定の`Symbol.for`を使い、別々にbundleされた機能拡張から同じregistryを取得できます。
 - target scopeとproject scopeを分離し、project停止時にsession resourceを解放します。
-- namespace衝突や互換性のないserviceを安定した`NAMED_DATA_*` codeで拒否します。
+- 同じnamespaceとkindのprovider衝突や不正なserviceを安定した`NAMED_DATA_*` codeで拒否します。
 
 ## 要件と安全性
 
@@ -53,7 +53,8 @@ MVPが有効な場合だけ、registryの利用可否を確認するBoolean bloc
 - representation: `json`、`yaml`、`html`、`markdown`、`raw`
 - body: `Uint8Array`または`ReadableStream<Uint8Array>`
 - revision: 解釈しないopaque string
-- 共有symbol: `@kubohiroya/turbowarp-named-data/registry/2.0`
+- provider dispatch key: `(namespace, kind)`。同じ論理namespaceへ異なるkindを登録できます。
+- 共有symbol: `@kubohiroya/turbowarp-named-data/registry`
 
 [アーキテクチャ](docs/architecture.ja.md)、[参照schema](schemas/named-data-reference.schema.json)、[extension manifest schema](schemas/extension-manifest.schema.json)も参照してください。
 
