@@ -58,6 +58,18 @@ describe('NamedDataRegistry', () => {
     );
   });
 
+  it('rejects a registry-shaped value with missing service methods', () => {
+    const runtime = {
+      [NAMED_DATA_REGISTRY_SYMBOL]: {
+        contractVersion: '2.0',
+        symbolKey: '@kubohiroya/turbowarp-named-data/registry/2.0'
+      }
+    };
+    expect(() => getNamedDataRegistry(runtime)).toThrowError(
+      expect.objectContaining({code: 'NAMED_DATA_INCOMPATIBLE_VERSION'})
+    );
+  });
+
   it('rejects duplicate namespaces and releases on unregister', async () => {
     const registry = new NamedDataRegistry();
     const first = provider();
@@ -172,6 +184,18 @@ describe('NamedDataRegistry', () => {
     expect(runtime.off).not.toHaveBeenCalled();
     unbindSecond();
     expect(runtime.off).toHaveBeenCalledOnce();
+  });
+
+  it('reuses the lifecycle listener when the runtime cannot remove listeners', () => {
+    const registry = new NamedDataRegistry();
+    const runtime = {on: vi.fn()};
+    const unbindFirst = bindNamedDataRegistryLifecycle(runtime, registry);
+
+    unbindFirst();
+    const unbindSecond = bindNamedDataRegistryLifecycle(runtime, registry);
+
+    expect(runtime.on).toHaveBeenCalledOnce();
+    unbindSecond();
   });
 
   it('normalizes compatible provider error codes and masks arbitrary failures', async () => {

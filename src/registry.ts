@@ -283,24 +283,37 @@ function lifecycleUnbind(
     active = false;
     binding.references -= 1;
     if (binding.references > 0) return;
-    runtime.off?.('PROJECT_STOP_ALL', binding.listener);
-    delete host[LIFECYCLE_SYMBOL];
+    if (runtime.off) {
+      runtime.off('PROJECT_STOP_ALL', binding.listener);
+      delete host[LIFECYCLE_SYMBOL];
+    }
   };
 }
 
 function requireCompatibleRegistry(value: unknown): NamedDataRegistryService {
-  if (
-    typeof value !== 'object' ||
-    value === null ||
-    (value as Partial<NamedDataRegistryService>).contractVersion !== NAMED_DATA_CONTRACT_VERSION ||
-    (value as Partial<NamedDataRegistryService>).symbolKey !== NAMED_DATA_REGISTRY_SYMBOL_KEY
-  ) {
-    throw new NamedDataError(
-      'NAMED_DATA_INCOMPATIBLE_VERSION',
-      `Runtime slot ${NAMED_DATA_REGISTRY_SYMBOL_KEY} contains an incompatible service.`
+  if (isCompatibleRegistry(value)) return value;
+  throw new NamedDataError(
+    'NAMED_DATA_INCOMPATIBLE_VERSION',
+    `Runtime slot ${NAMED_DATA_REGISTRY_SYMBOL_KEY} contains an incompatible service.`
+  );
+}
+
+function isCompatibleRegistry(value: unknown): value is NamedDataRegistryService {
+  if (typeof value !== 'object' || value === null) return false;
+  try {
+    const candidate = value as Partial<NamedDataRegistryService>;
+    return (
+      candidate.contractVersion === NAMED_DATA_CONTRACT_VERSION &&
+      candidate.symbolKey === NAMED_DATA_REGISTRY_SYMBOL_KEY &&
+      typeof candidate.registerProvider === 'function' &&
+      typeof candidate.canResolve === 'function' &&
+      typeof candidate.stat === 'function' &&
+      typeof candidate.openBody === 'function' &&
+      typeof candidate.clearSession === 'function'
     );
+  } catch {
+    return false;
   }
-  return value as NamedDataRegistryService;
 }
 
 function validateReference(
