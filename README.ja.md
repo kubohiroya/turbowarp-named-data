@@ -25,7 +25,7 @@ registryが保持するのはprovider descriptor、metadata、release callback�
 ## インストール
 
 ```bash
-pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.1.0
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.2.0
 ```
 
 feature flagの設定後に`dist/named-data.js`をTurboWarpへloadします。providerは`src/contract.ts`の契約に従い、`installNamedDataRegistry(runtime)`または`getNamedDataRegistry(runtime)`で共有serviceへ接続します。

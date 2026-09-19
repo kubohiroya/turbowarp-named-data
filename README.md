@@ -25,7 +25,7 @@ Only provider descriptors, metadata, and release callbacks are retained by the r
 ## Installation
 
 ```bash
-pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.1.0
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.2.0
 ```
 
 Load `dist/named-data.js` in TurboWarp after setting the feature flag. Providers use the contract in `src/contract.ts` and install or retrieve the shared service with `installNamedDataRegistry(runtime)` or `getNamedDataRegistry(runtime)`.
