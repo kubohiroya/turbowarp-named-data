@@ -1,14 +1,21 @@
 {
-  "extensionName": "TurboWarp-Example-Extension",
+  "extensionName": "Named Data",
+  "runtimeServices": [
+    {
+      "id": "named-data-registry",
+      "contractVersion": "2.0",
+      "symbolKey": "@kubohiroya/turbowarp-named-data/registry/2.0",
+      "featureFlag": "NAMED_DATA_REGISTRY_MVP",
+      "defaultEnabled": false
+    }
+  ],
   "blocks": [
     {
-      "opcode": "hello",
-      "blockType": "REPORTER",
-      "text": "hello [NAME]",
-      "description": "Returns a localized greeting for the supplied name.",
-      "arguments": {
-        "NAME": {"type": "STRING", "defaultValue": "world"}
-      }
+      "opcode": "isRegistryAvailable",
+      "blockType": "BOOLEAN",
+      "text": "named data registry available?",
+      "description": "Reports whether the startup-fixed Named Data registry feature is enabled.",
+      "arguments": {}
     }
   ]
 }

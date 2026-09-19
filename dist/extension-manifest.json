@@ -1,17 +1,21 @@
 {
-  "formatVersion": 1,
-  "id": "kubohiroyaexampleextension",
+  "formatVersion": 2,
+  "id": "kubohiroyanameddata",
   "blocks": [
     {
-      "opcode": "hello",
-      "blockType": "REPORTER",
-      "arguments": [
-        {
-          "id": "NAME",
-          "type": "STRING"
-        }
-      ]
+      "opcode": "isRegistryAvailable",
+      "blockType": "BOOLEAN",
+      "arguments": []
     }
   ],
-  "menus": []
+  "menus": [],
+  "runtimeServices": [
+    {
+      "id": "named-data-registry",
+      "contractVersion": "2.0",
+      "symbolKey": "@kubohiroya/turbowarp-named-data/registry/2.0",
+      "featureFlag": "NAMED_DATA_REGISTRY_MVP",
+      "defaultEnabled": false
+    }
+  ]
 }

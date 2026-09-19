@@ -1,32 +1,39 @@
 {
-  "name": "@kubohiroya/turbowarp-extension-template",
-  "version": "0.4.0",
-  "description": "A reusable TypeScript template for developing TurboWarp extensions with Vite.",
+  "name": "@kubohiroya/turbowarp-named-data",
+  "version": "0.1.0",
+  "description": "Shared named-data references and provider registry for TurboWarp extensions.",
   "author": "Hiroya Kubo <hiroya@cuc.ac.jp>",
   "license": "MPL-2.0",
-  "homepage": "https://github.com/kubohiroya/turbowarp-extension-template#readme",
+  "homepage": "https://github.com/kubohiroya/turbowarp-named-data#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/kubohiroya/turbowarp-extension-template.git"
+    "url": "git+https://github.com/kubohiroya/turbowarp-named-data.git"
   },
   "bugs": {
-    "url": "https://github.com/kubohiroya/turbowarp-extension-template/issues"
+    "url": "https://github.com/kubohiroya/turbowarp-named-data/issues"
   },
   "keywords": [
     "turbowarp",
     "scratch",
     "extension",
-    "template",
+    "named-data",
+    "registry",
     "vite",
     "typescript"
   ],
   "type": "module",
+  "exports": {
+    "./composition": {
+      "types": "./dist/types/composition.d.ts",
+      "import": "./dist/composition.js"
+    },
+    "./package.json": "./package.json"
+  },
   "files": [
     "dist/",
     "docs/",
     "schemas/",
     "src/",
-    "templates/",
     "README.md",
     "README.ja.md",
     "LICENSE"
@@ -35,6 +42,8 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
+  "unpkg": "./dist/named-data.js",
+  "jsdelivr": "./dist/named-data.js",
   "packageManager": "pnpm@11.11.0",
   "engines": {
     "node": ">=22.18.0"
@@ -42,15 +51,18 @@
   "scripts": {
     "dev": "vite build --watch",
     "typecheck": "tsc --noEmit",
-    "build": "vite build",
-    "lint": "eslint src tests scripts vite.config.ts eslint.config.ts",
+    "build": "pnpm run build:extension && pnpm run build:composition && pnpm run build:types",
+    "build:extension": "vite build",
+    "build:composition": "vite build --config vite.composition.config.ts",
+    "build:types": "tsc --project tsconfig.build.json",
+    "types:composition:check": "tsc --project tsconfig.composition-consumer.json",
+    "lint": "eslint src tests scripts vite.config.ts vite.composition.config.ts eslint.config.ts",
     "test": "vitest run",
     "docs": "node scripts/generate-readme.ts",
-    "docs:check": "pnpm run docs && git diff --exit-code -- README.md",
-    "template:readme": "node scripts/apply-readme-template.ts",
+    "docs:check": "node scripts/generate-readme.ts --check",
     "repo:check": "node scripts/check-repo.ts",
     "pack:check": "npm pack --dry-run --ignore-scripts",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run docs:check && pnpm run check:dist && pnpm run repo:check && pnpm run pack:check",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test && pnpm run docs:check && pnpm run check:dist && pnpm run types:composition:check && pnpm run repo:check && pnpm run pack:check",
     "check:dist": "pnpm run build && node scripts/check-dist.ts"
   },
   "devDependencies": {

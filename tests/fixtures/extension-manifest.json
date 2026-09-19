@@ -1,5 +1,5 @@
 {
-  "formatVersion": 1,
+  "formatVersion": 2,
   "id": "fixtureextension",
   "blocks": [
     {
@@ -31,6 +31,15 @@
     {
       "id": "voices",
       "acceptReporters": true
+    }
+  ],
+  "runtimeServices": [
+    {
+      "id": "named-data-registry",
+      "contractVersion": "2.0",
+      "symbolKey": "@kubohiroya/turbowarp-named-data/registry/2.0",
+      "featureFlag": "NAMED_DATA_REGISTRY_MVP",
+      "defaultEnabled": false
     }
   ]
 }

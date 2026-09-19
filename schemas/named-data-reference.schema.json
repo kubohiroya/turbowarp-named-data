@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/kubohiroya/turbowarp-named-data/main/schemas/named-data-reference.schema.json",
+  "title": "Named Data Body Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["namespace", "name", "kind", "scope", "representation"],
+  "properties": {
+    "namespace": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$"},
+    "name": {"type": "string", "minLength": 1, "maxLength": 256},
+    "kind": {"enum": ["structured", "document", "binary", "asset"]},
+    "scope": {"enum": ["target", "project"]},
+    "representation": {"enum": ["json", "yaml", "html", "markdown", "raw"]}
+  }
+}

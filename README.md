@@ -1,114 +1,83 @@
-# TurboWarp-Extension-Template
+# TurboWarp-Named-Data
 
 [日本語](README.ja.md)
 
-A reusable TypeScript template for developing, testing, building, and releasing TurboWarp extensions with Vite.
-
-## User guide
-
-Create a repository from this template, replace the package and extension metadata, implement blocks in `src/extension.ts`, and keep generated artifacts checked in.
-
-The template package is version-pinned when it is used as a reference:
-
-```bash
-pnpm add --save-exact @kubohiroya/turbowarp-extension-template@0.4.0
-```
+A shared, runtime-neutral named-data contract and registry for unsandboxed TurboWarp extensions.
 
 ## What it does
 
-- builds a single TurboWarp-compatible JavaScript extension file;
-- emits a deterministic `dist/extension-manifest.json` API contract;
-- generates the README block reference from `src/block-definitions.json`;
-- verifies source, documentation, generated `dist/` output, repository policy, and npm package contents in one check.
+- resolves `namespace + name + kind + scope` references through registered providers;
+- exposes metadata and byte/stream bodies without copying payloads into the registry;
+- shares one registry between separately bundled extensions through a versioned `Symbol.for` key;
+- separates target and project scope and cleans session resources on project stop;
+- rejects namespace collisions and incompatible services with stable `NAMED_DATA_*` codes.
 
 ## Requirements and safety
 
-- Node.js 22 or newer;
-- pnpm through Corepack;
-- TurboWarp's unsandboxed extension option only when your extension metadata sets `unsandboxed: true`.
+The extension requires TurboWarp's unsandboxed extension mode. The MVP is startup-fixed and disabled by default. A host must configure the flag before loading the bundle:
 
-Only load generated extension code that you trust. Unsandboxed extensions run with browser page access.
+```js
+globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__ = {NAMED_DATA_REGISTRY_MVP: true};
+```
+
+Only provider descriptors, metadata, and release callbacks are retained by the registry. Body bytes and streams are returned directly and are never placed in the manifest, fixtures, or registry state.
 
 ## Installation
 
 ```bash
-corepack enable
-pnpm install --frozen-lockfile
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.1.0
 ```
 
-## Quick start
+Load `dist/named-data.js` in TurboWarp after setting the feature flag. Providers use the contract in `src/contract.ts` and install or retrieve the shared service with `installNamedDataRegistry(runtime)` or `getNamedDataRegistry(runtime)`.
 
-1. Create a repository from this template.
-2. Update `package.json` metadata and `repo-policy.json`.
-3. Edit `src/config.ts`.
-4. Define blocks in `src/block-definitions.json`.
-5. Implement runtime behavior in `src/extension.ts`.
-6. Run `pnpm run docs`.
-7. Run `pnpm run check`.
+Other packages consume the side-effect-free ESM entrypoint and its declarations:
 
-For continuous rebuilding during development:
-
-```bash
-pnpm run dev
+```ts
+import {
+  installNamedDataRegistry,
+  type NamedDataProvider,
+  type NamedDataReference
+} from '@kubohiroya/turbowarp-named-data/composition';
 ```
+
+The package export resolves to `dist/composition.js` with types from `dist/types/composition.d.ts`. Importing it does not register the TurboWarp extension.
 
 ## Block reference
 
 <!-- BEGIN GENERATED BLOCKS -->
 
-### `hello [NAME]`
+### `named data registry available?`
 
-Returns a localized greeting for the supplied name.
+Reports whether the startup-fixed Named Data registry feature is enabled.
 
 | Property | Value |
 |---|---|
-| Type | Reporter |
-| Opcode | `hello` |
-| `NAME` | String, default: `world` |
+| Type | Boolean |
+| Opcode | `isRegistryAvailable` |
 
 <!-- END GENERATED BLOCKS -->
 
-## Important behavior
+The availability block is shown only while the MVP flag is enabled. Provider registration and body access are extension-to-extension APIs rather than Scratch value blocks.
 
-```text
-TypeScript source
-  -> Vite
-  -> vite-plugin-turbowarp-extension
-  -> dist/<extension-name>.js
+## Contract summary
 
-Extension config + block definitions
-  -> extension manifest plugin
-  -> dist/extension-manifest.json
-```
+- kinds: `structured`, `document`, `binary`, `asset`;
+- scopes: `target`, `project`;
+- representations: `json`, `yaml`, `html`, `markdown`, `raw`;
+- body: `Uint8Array` or `ReadableStream<Uint8Array>`;
+- revision: opaque string;
+- shared symbol: `@kubohiroya/turbowarp-named-data/registry/2.0`.
 
-The generated JavaScript is a single, non-minified TurboWarp extension file with Extension Gallery metadata and the standard `(function (Scratch) { ... })(Scratch);` wrapper.
-
-Each build emits `dist/extension-manifest.json` with `formatVersion: 1`. It records the extension ID, block opcodes and types, argument IDs and types, and menu references in a deterministic order. Tools such as `sb3-toolchain` can compare this contract before updating an embedded extension or migrating its ID. See [the architecture document](docs/architecture.md) and the [JSON Schema](schemas/extension-manifest.schema.json) for the v1 contract.
-
-## Compatibility
-
-The canonical README is `README.md`. Japanese documentation uses `README.ja.md`; new repositories should not create `README_ja.md`.
-
-Repository-level differences belong in `repo-policy.json`. Use policy exceptions for upstream forks, mixed-license content, legacy package names, or third-party bundles instead of weakening checks silently.
+See [Architecture](docs/architecture.md), the [reference schema](schemas/named-data-reference.schema.json), and the [extension manifest schema](schemas/extension-manifest.schema.json).
 
 ## Development
 
 ```bash
+pnpm install --frozen-lockfile
 pnpm run check
 ```
 
-The check runs type checking, linting, tests, generated README validation, `dist/` reproducibility, repository policy validation, and an npm package dry run.
-
-## Release
-
-Keep `package.json` as the version source of truth. Before publishing, run:
-
-```bash
-pnpm run check
-npm pack --dry-run --ignore-scripts
-```
-
-Release artifacts include `dist/example-extension.js`, `dist/extension-manifest.json`, `README.md`, `README.ja.md`, and `LICENSE`.
+Generated release artifacts include `dist/named-data.js`, `dist/composition.js`, `dist/types/`, and `dist/extension-manifest.json`.
 
 ## License
 

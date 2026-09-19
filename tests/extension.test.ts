@@ -1,45 +1,43 @@
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
-import {ExampleExtension} from '../src/extension.js';
+import {NamedDataExtension} from '../src/extension.js';
+
+const listeners = new Map<string, () => void>();
+const runtime = {
+  on: (event: string, listener: () => void) => listeners.set(event, listener),
+  off: (event: string) => listeners.delete(event)
+};
 
 beforeEach(() => {
+  listeners.clear();
   vi.stubGlobal('Scratch', {
-    BlockType: {REPORTER: 'reporter'},
-    ArgumentType: {STRING: 'string'},
-    Cast: {
-      toString: (value: unknown) => String(value)
-    },
-    translate: (
-      message: string | {default: string},
-      placeholders: Record<string, string | number> = {}
-    ) => {
-      const text = typeof message === 'string' ? message : message.default;
-      return Object.entries(placeholders).reduce(
-        (result, [name, value]) => result.replace(`{${name}}`, String(value)),
-        text
-      );
-    }
+    BlockType: {BOOLEAN: 'boolean'},
+    ArgumentType: {},
+    Cast: {},
+    translate: (message: string | {default: string}) =>
+      typeof message === 'string' ? message : message.default
   });
 });
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+afterEach(() => vi.unstubAllGlobals());
 
-describe('ExampleExtension', () => {
-  it('returns a greeting', () => {
-    const extension = new ExampleExtension();
-    expect(extension.hello({NAME: 'TurboWarp'})).toBe('Hello, TurboWarp!');
+describe('NamedDataExtension', () => {
+  it('keeps the feature disabled by default', () => {
+    const extension = new NamedDataExtension(runtime, {NAMED_DATA_REGISTRY_MVP: false});
+    expect(extension.isRegistryAvailable()).toBe(false);
+    expect((extension.getInfo().blocks as unknown[]).length).toBe(0);
   });
 
-  it('uses localizable extension and block text', () => {
-    const info = new ExampleExtension().getInfo() as {name: string; blocks: Array<{text: string}>};
-    expect(info.name).toBe('TurboWarp-Example-Extension');
-    expect(info.blocks[0]?.text).toBe('hello [NAME]');
-  });
-
-  it('publishes documentation and a self-contained SVG block icon', () => {
-    const info = new ExampleExtension().getInfo() as {docsURI: string; blockIconURI: string};
-    expect(info.docsURI).toBe('https://kubohiroya.github.io/turbowarp-extension-template/');
-    expect(info.blockIconURI).toMatch(/^data:image\/svg\+xml;base64,/);
+  it('installs the registry and block only when explicitly enabled', () => {
+    const extension = new NamedDataExtension(runtime, {NAMED_DATA_REGISTRY_MVP: true});
+    expect(extension.isRegistryAvailable()).toBe(true);
+    expect(extension.getInfo()).toMatchObject({
+      id: 'kubohiroyanameddata',
+      name: 'Named Data',
+      docsURI: 'https://kubohiroya.github.io/turbowarp-named-data/'
+    });
+    expect((extension.getInfo().blocks as unknown[]).length).toBe(1);
+    expect(listeners.has('PROJECT_STOP_ALL')).toBe(true);
+    extension.dispose();
+    expect(listeners.has('PROJECT_STOP_ALL')).toBe(false);
   });
 });

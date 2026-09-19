@@ -1,6 +1,6 @@
 import type {Plugin} from 'vite';
 
-export const EXTENSION_MANIFEST_FORMAT_VERSION = 1 as const;
+export const EXTENSION_MANIFEST_FORMAT_VERSION = 2 as const;
 
 export interface ExtensionManifestArgument {
   id: string;
@@ -19,11 +19,20 @@ export interface ExtensionManifestMenu {
   acceptReporters: boolean;
 }
 
+export interface ExtensionManifestRuntimeService {
+  id: string;
+  contractVersion: string;
+  symbolKey: string;
+  featureFlag: string;
+  defaultEnabled: boolean;
+}
+
 export interface ExtensionManifest {
   formatVersion: typeof EXTENSION_MANIFEST_FORMAT_VERSION;
   id: string;
   blocks: ExtensionManifestBlock[];
   menus: ExtensionManifestMenu[];
+  runtimeServices: ExtensionManifestRuntimeService[];
 }
 
 export interface ExtensionManifestPluginOptions {
@@ -44,6 +53,7 @@ export function createExtensionManifest(id: string, definitions: unknown): Exten
   }
 
   const menus = normalizeMenus(source.menus);
+  const runtimeServices = normalizeRuntimeServices(source.runtimeServices);
   const menuIds = new Set(menus.map((menu) => menu.id));
   const seenOpcodes = new Set<string>();
   const blocks = sourceBlocks.map((block, index) => {
@@ -59,8 +69,37 @@ export function createExtensionManifest(id: string, definitions: unknown): Exten
     formatVersion: EXTENSION_MANIFEST_FORMAT_VERSION,
     id,
     blocks: blocks.sort((left, right) => compareIds(left.opcode, right.opcode)),
-    menus
+    menus,
+    runtimeServices
   };
+}
+
+function normalizeRuntimeServices(value: unknown): ExtensionManifestRuntimeService[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new TypeError('Runtime services must be an array.');
+  const seen = new Set<string>();
+  return value
+    .map((item, index) => {
+      const service = requireRecord(item, `Runtime service at index ${index}`);
+      const id = requireNonEmptyString(service.id, `Runtime service at index ${index} ID`);
+      if (seen.has(id)) throw new TypeError(`Duplicate runtime service ID: ${id}`);
+      seen.add(id);
+      const defaultEnabled = service.defaultEnabled;
+      if (typeof defaultEnabled !== 'boolean') {
+        throw new TypeError(`Runtime service ${id} defaultEnabled must be a boolean.`);
+      }
+      return {
+        id,
+        contractVersion: requireNonEmptyString(
+          service.contractVersion,
+          `Runtime service ${id} contractVersion`
+        ),
+        symbolKey: requireNonEmptyString(service.symbolKey, `Runtime service ${id} symbolKey`),
+        featureFlag: requireNonEmptyString(service.featureFlag, `Runtime service ${id} featureFlag`),
+        defaultEnabled
+      };
+    })
+    .sort((left, right) => compareIds(left.id, right.id));
 }
 
 export function serializeExtensionManifest(id: string, definitions: unknown): string {

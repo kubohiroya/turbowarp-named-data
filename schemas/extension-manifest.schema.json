@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://raw.githubusercontent.com/kubohiroya/turbowarp-extension-template/main/schemas/extension-manifest.schema.json",
+  "$id": "https://raw.githubusercontent.com/kubohiroya/turbowarp-named-data/main/schemas/extension-manifest.schema.json",
   "title": "TurboWarp Extension API Manifest",
   "type": "object",
   "additionalProperties": false,
-  "required": ["formatVersion", "id", "blocks", "menus"],
+  "required": ["formatVersion", "id", "blocks", "menus", "runtimeServices"],
   "properties": {
-    "formatVersion": {"const": 1},
+    "formatVersion": {"const": 2},
     "id": {"type": "string", "pattern": "^[a-z0-9]+$"},
     "blocks": {
       "type": "array",
@@ -42,6 +42,21 @@
         "properties": {
           "id": {"type": "string", "minLength": 1},
           "acceptReporters": {"type": "boolean"}
+        }
+      }
+    },
+    "runtimeServices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "contractVersion", "symbolKey", "featureFlag", "defaultEnabled"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "contractVersion": {"type": "string", "minLength": 1},
+          "symbolKey": {"type": "string", "minLength": 1},
+          "featureFlag": {"type": "string", "minLength": 1},
+          "defaultEnabled": {"type": "boolean"}
         }
       }
     }
