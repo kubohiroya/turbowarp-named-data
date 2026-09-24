@@ -1,5 +1,5 @@
 {
-  "formatVersion": 2,
+  "formatVersion": 1,
   "id": "kubohiroyanameddata",
   "blocks": [
     {
@@ -8,13 +8,5 @@
       "arguments": []
     }
   ],
-  "menus": [],
-  "runtimeServices": [
-    {
-      "id": "named-data-registry",
-      "symbolKey": "@kubohiroya/turbowarp-named-data/registry",
-      "featureFlag": "NAMED_DATA_REGISTRY_MVP",
-      "defaultEnabled": false
-    }
-  ]
+  "menus": []
 }

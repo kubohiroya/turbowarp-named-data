@@ -1,8 +1,9 @@
 import {defineConfig} from 'vite';
+import {extensionManifestPlugin} from '@kubohiroya/turbowarp-extension-manifest';
 import {turboWarpExtension} from '@kubohiroya/vite-plugin-turbowarp-extension';
 import definitions from './src/block-definitions.json' with {type: 'json'};
 import {extensionConfig} from './src/config.js';
-import {extensionManifestPlugin} from './src/extension-manifest.js';
+import {serializeRuntimeServices} from './src/runtime-services.js';
 
 export default defineConfig({
   plugins: [
@@ -17,6 +18,18 @@ export default defineConfig({
     extensionManifestPlugin({
       id: extensionConfig.id,
       definitions
-    })
+    }),
+    {
+      name: 'named-data-runtime-services',
+      apply: 'build',
+      enforce: 'post',
+      generateBundle() {
+        this.emitFile({
+          type: 'asset',
+          fileName: 'runtime-services.json',
+          source: serializeRuntimeServices(definitions)
+        });
+      }
+    }
   ]
 });
