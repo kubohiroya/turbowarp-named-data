@@ -1,5 +1,6 @@
 export interface NamedDataFeatureFlags {
   readonly NAMED_DATA_REGISTRY_MVP: boolean;
+  readonly NAMED_DATA_SCHEMA_REF?: boolean;
 }
 
 export const NAMED_DATA_REGISTRY_MVP_DEFAULT = false;
@@ -13,6 +14,7 @@ function configuredFlag(name: keyof NamedDataFeatureFlags): boolean {
 }
 
 /** Startup-fixed rollout flags. Configure these before loading the bundle. */
-export const FEATURE_FLAGS: NamedDataFeatureFlags = Object.freeze({
-  NAMED_DATA_REGISTRY_MVP: configuredFlag('NAMED_DATA_REGISTRY_MVP')
+export const FEATURE_FLAGS = Object.freeze({
+  NAMED_DATA_REGISTRY_MVP: configuredFlag('NAMED_DATA_REGISTRY_MVP'),
+  NAMED_DATA_SCHEMA_REF: configuredFlag('NAMED_DATA_SCHEMA_REF')
 });

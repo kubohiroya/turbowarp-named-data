@@ -5,6 +5,8 @@ import {
   NAMED_DATA_REGISTRY_SYMBOL_KEY,
   NAMED_DATA_REPRESENTATIONS,
   NAMED_DATA_SCOPES,
+  NAMED_DATA_SCHEMA_ID_PATTERN,
+  NAMED_DATA_SCHEMA_VERSION_PATTERN,
   NamedDataError,
   isNamedDataNamespace,
   type NamedDataBody,
@@ -361,6 +363,7 @@ function validateReferenceShape(
   ) {
     throw invalidReference();
   }
+  if (reference.schemaRef !== undefined) validateSchemaRef(reference.kind, reference.schemaRef);
 }
 
 function validateMetadata(
@@ -386,6 +389,51 @@ function validateMetadata(
   ) {
     throw new NamedDataError('NAMED_DATA_INVALID_METADATA', 'Provider returned invalid metadata.');
   }
+  const expectedSchema = reference.schemaRef;
+  const actualSchema = metadata.schemaRef;
+  if (actualSchema !== undefined) {
+    validateSchemaRef(metadata.reference.kind, actualSchema, 'NAMED_DATA_INVALID_METADATA');
+  }
+  if (metadata.reference.schemaRef !== undefined) {
+    validateSchemaRef(metadata.reference.kind, metadata.reference.schemaRef, 'NAMED_DATA_INVALID_METADATA');
+  }
+  if (
+    !sameSchemaRef(expectedSchema, actualSchema) ||
+    !sameSchemaRef(expectedSchema, metadata.reference.schemaRef)
+  ) {
+    throw new NamedDataError(
+      'NAMED_DATA_SCHEMA_VERSION_MISMATCH',
+      'Provider schemaRef does not match the requested reference.'
+    );
+  }
+}
+
+function validateSchemaRef(
+  kind: NamedDataReference['kind'],
+  schemaRef: unknown,
+  errorCode: 'NAMED_DATA_INVALID_REF' | 'NAMED_DATA_INVALID_METADATA' = 'NAMED_DATA_INVALID_REF'
+): asserts schemaRef is {readonly id: string; readonly version: string} {
+  if (
+    kind !== 'structured' ||
+    typeof schemaRef !== 'object' || schemaRef === null ||
+    !NAMED_DATA_SCHEMA_ID_PATTERN.test(String((schemaRef as {id?: unknown}).id ?? '')) ||
+    !NAMED_DATA_SCHEMA_VERSION_PATTERN.test(String((schemaRef as {version?: unknown}).version ?? '')) ||
+    Object.keys(schemaRef).some((key) => key !== 'id' && key !== 'version')
+  ) {
+    throw new NamedDataError(
+      errorCode,
+      'Invalid schemaRef; schema references require a structured value, stable id, and full SemVer version.'
+    );
+  }
+}
+
+function sameSchemaRef(
+  left: NamedDataReference['schemaRef'],
+  right: NamedDataMetadata['schemaRef']
+): boolean {
+  return left === undefined
+    ? right === undefined
+    : right !== undefined && left.id === right.id && left.version === right.version;
 }
 
 function isNativeRepresentation(

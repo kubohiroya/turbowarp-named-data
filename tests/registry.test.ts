@@ -145,6 +145,38 @@ describe('NamedDataRegistry', () => {
     await expect(registry.stat(targetReference, 'json', {target: {}})).resolves.toMatchObject({revision: 'opaque:r7'});
   });
 
+  it('propagates structured schema identity and rejects provider version drift', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    const schemaRef = {id: 'com.example.profile', version: '1.2.3'};
+    source.stat = (reference, representation) => ({
+      reference: {...reference}, schemaRef,
+      nativeRepresentation: representation, representation,
+      mediaType: 'application/json', revision: 'opaque:r1', replayable: true
+    });
+    registry.registerProvider(source);
+    const reference: NamedDataReference = {...targetReference, schemaRef};
+    await expect(registry.stat(reference, 'json', {target: {}})).resolves.toMatchObject({schemaRef});
+
+    source.stat = (resolvedReference, representation) => ({
+      reference: {...resolvedReference}, schemaRef: {...schemaRef, version: '1.2.2'},
+      nativeRepresentation: representation, representation,
+      mediaType: 'application/json', revision: 'opaque:r2', replayable: true
+    });
+    await expect(registry.stat(reference, 'json', {target: {}})).rejects.toMatchObject({
+      code: 'NAMED_DATA_SCHEMA_VERSION_MISMATCH'
+    });
+  });
+
+  it('validates schema identity format and limits it to structured references', async () => {
+    const registry = new NamedDataRegistry();
+    registry.registerProvider(provider());
+    await expect(registry.stat({...targetReference, schemaRef: {id: 'bad id', version: '1.0.0'}}, 'json', {target: {}}))
+      .rejects.toMatchObject({code: 'NAMED_DATA_INVALID_REF'});
+    await expect(registry.stat({...targetReference, kind: 'document', schemaRef: {id: 'com.example.doc', version: '1.0.0'}}, 'json', {target: {}}))
+      .rejects.toMatchObject({code: 'NAMED_DATA_INVALID_REF'});
+  });
+
   it('distinguishes a missing provider from an unsupported representation', async () => {
     const registry = new NamedDataRegistry();
     await expect(

@@ -22,13 +22,13 @@ afterEach(() => vi.unstubAllGlobals());
 
 describe('NamedDataExtension', () => {
   it('keeps the feature disabled by default', () => {
-    const extension = new NamedDataExtension(runtime, {NAMED_DATA_REGISTRY_MVP: false});
+    const extension = new NamedDataExtension(runtime, {NAMED_DATA_REGISTRY_MVP: false, NAMED_DATA_SCHEMA_REF: false});
     expect(extension.isRegistryAvailable()).toBe(false);
     expect((extension.getInfo().blocks as unknown[]).length).toBe(0);
   });
 
   it('installs the registry and block only when explicitly enabled', () => {
-    const extension = new NamedDataExtension(runtime, {NAMED_DATA_REGISTRY_MVP: true});
+    const extension = new NamedDataExtension(runtime, {NAMED_DATA_REGISTRY_MVP: true, NAMED_DATA_SCHEMA_REF: false});
     expect(extension.isRegistryAvailable()).toBe(true);
     expect(extension.getInfo()).toMatchObject({
       id: 'kubohiroyanameddata',
