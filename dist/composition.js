@@ -147,6 +147,7 @@ var NamedDataRegistry = class {
 			...opened.digest === void 0 ? {} : { digest: opened.digest },
 			revision: opened.revision,
 			replayable: opened.replayable,
+			...opened.schemaRef === void 0 ? {} : { schemaRef: opened.schemaRef },
 			body: opened.body,
 			release: tracked.release
 		});

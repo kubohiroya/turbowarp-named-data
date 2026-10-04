@@ -28,7 +28,7 @@ Structured references may include `schemaRef: { id, version }`. IDs use lowercas
 ## Installation
 
 ```bash
-pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.3.0
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.4.0
 ```
 
 Load `dist/named-data.js` in TurboWarp after setting the feature flag. Providers use the contract in `src/contract.ts` and install or retrieve the shared service with `installNamedDataRegistry(runtime)` or `getNamedDataRegistry(runtime)`.

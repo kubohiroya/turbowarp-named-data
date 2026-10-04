@@ -169,6 +169,7 @@ export class NamedDataRegistry implements NamedDataRegistryService {
       ...(opened.digest === undefined ? {} : {digest: opened.digest}),
       revision: opened.revision,
       replayable: opened.replayable,
+      ...(opened.schemaRef === undefined ? {} : {schemaRef: opened.schemaRef}),
       body: opened.body,
       release: tracked.release
     });
