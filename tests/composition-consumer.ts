@@ -21,6 +21,10 @@ const reference: NamedDataReference = {
   scope: 'project'
 };
 const context: NamedDataResolveContext = {project: runtime};
+const schemaBoundStructuredReference: NamedDataReference = {
+  namespace: 'fixture', name: 'profile', kind: 'structured', scope: 'project',
+  schemaRef: {id: 'com.example.profile', version: '1.0.0'}
+};
 
 const provider: NamedDataProvider = {
   namespace: 'fixture',
@@ -51,5 +55,6 @@ const provider: NamedDataProvider = {
 registry.registerProvider(provider);
 void registry.stat(reference, 'html', context);
 void sameRegistry;
+void schemaBoundStructuredReference;
 void NAMED_DATA_REGISTRY_MVP_DEFAULT;
 void NamedDataError;

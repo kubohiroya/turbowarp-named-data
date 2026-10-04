@@ -11,6 +11,9 @@ export function isNamedDataNamespace(value: unknown): value is string {
 export const NAMED_DATA_KINDS = ['structured', 'document', 'binary', 'asset'] as const;
 export const NAMED_DATA_SCOPES = ['target', 'project'] as const;
 export const NAMED_DATA_REPRESENTATIONS = ['json', 'yaml', 'html', 'markdown', 'raw'] as const;
+export const NAMED_DATA_SCHEMA_ID_PATTERN = /^[a-z][a-z0-9.-]{0,127}$/u;
+export const NAMED_DATA_SCHEMA_VERSION_PATTERN =
+  /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
 
 export const NAMED_DATA_ERROR_CODES = [
   'NAMED_DATA_INVALID_REF',
@@ -20,6 +23,9 @@ export const NAMED_DATA_ERROR_CODES = [
   'NAMED_DATA_NOT_FOUND',
   'NAMED_DATA_KIND_MISMATCH',
   'NAMED_DATA_SCOPE_MISMATCH',
+  'NAMED_DATA_SCHEMA_NOT_FOUND',
+  'NAMED_DATA_SCHEMA_VERSION_MISMATCH',
+  'NAMED_DATA_SCHEMA_UNRESOLVED',
   'NAMED_DATA_REPRESENTATION_UNSUPPORTED',
   'NAMED_DATA_INVALID_METADATA',
   'NAMED_DATA_BODY_TOO_LARGE',
@@ -33,11 +39,19 @@ export type NamedDataRepresentation = (typeof NAMED_DATA_REPRESENTATIONS)[number
 export type NamedDataErrorCode = (typeof NAMED_DATA_ERROR_CODES)[number];
 export type NamedDataReleaseReason = 'complete' | 'cancel' | 'abort' | 'error' | 'shutdown';
 
+/** Stable schema identity only. Schema documents and value payloads stay outside this registry. */
+export interface NamedDataSchemaRef {
+  readonly id: string;
+  /** Complete Semantic Version, including any prerelease or build metadata. */
+  readonly version: string;
+}
+
 export interface NamedDataReference {
   readonly namespace: string;
   readonly name: string;
   readonly kind: NamedDataKind;
   readonly scope: NamedDataScope;
+  readonly schemaRef?: NamedDataSchemaRef;
 }
 
 export interface NamedDataResolveContext {
@@ -50,6 +64,8 @@ export interface NamedDataResolveContext {
 
 export interface NamedDataMetadata {
   readonly reference: NamedDataReference;
+  /** Must match reference.schemaRef exactly when the reference declares one. */
+  readonly schemaRef?: NamedDataSchemaRef;
   /** Representation retained by the provider as the named value's native form. */
   readonly nativeRepresentation: NamedDataRepresentation;
   /** Representation selected for this resolved body. */

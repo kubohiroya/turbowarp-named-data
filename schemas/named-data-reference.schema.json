@@ -10,6 +10,24 @@
     "name": {"type": "string", "minLength": 1, "maxLength": 256},
     "kind": {"enum": ["structured", "document", "binary", "asset"]},
     "scope": {"enum": ["target", "project"]},
-    "representation": {"enum": ["json", "yaml", "html", "markdown", "raw"]}
-  }
+    "representation": {"enum": ["json", "yaml", "html", "markdown", "raw"]},
+    "schemaRef": {"$ref": "#/$defs/schemaRef"}
+  },
+  "$defs": {
+    "schemaRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "version"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,127}$"},
+        "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-((0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)(\\.(0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*))?(\\+[0-9A-Za-z-]+(\\.[0-9A-Za-z-]+)*)?$"}
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {"properties": {"schemaRef": {"$ref": "#/$defs/schemaRef"}}, "required": ["schemaRef"]},
+      "then": {"properties": {"kind": {"const": "structured"}}}
+    }
+  ]
 }

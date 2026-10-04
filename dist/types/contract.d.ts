@@ -5,17 +5,26 @@ export declare function isNamedDataNamespace(value: unknown): value is string;
 export declare const NAMED_DATA_KINDS: readonly ["structured", "document", "binary", "asset"];
 export declare const NAMED_DATA_SCOPES: readonly ["target", "project"];
 export declare const NAMED_DATA_REPRESENTATIONS: readonly ["json", "yaml", "html", "markdown", "raw"];
-export declare const NAMED_DATA_ERROR_CODES: readonly ["NAMED_DATA_INVALID_REF", "NAMED_DATA_INVALID_REGISTRY", "NAMED_DATA_PROVIDER_CONFLICT", "NAMED_DATA_PROVIDER_NOT_FOUND", "NAMED_DATA_NOT_FOUND", "NAMED_DATA_KIND_MISMATCH", "NAMED_DATA_SCOPE_MISMATCH", "NAMED_DATA_REPRESENTATION_UNSUPPORTED", "NAMED_DATA_INVALID_METADATA", "NAMED_DATA_BODY_TOO_LARGE", "NAMED_DATA_ABORTED", "NAMED_DATA_PROVIDER_RELEASED"];
+export declare const NAMED_DATA_SCHEMA_ID_PATTERN: RegExp;
+export declare const NAMED_DATA_SCHEMA_VERSION_PATTERN: RegExp;
+export declare const NAMED_DATA_ERROR_CODES: readonly ["NAMED_DATA_INVALID_REF", "NAMED_DATA_INVALID_REGISTRY", "NAMED_DATA_PROVIDER_CONFLICT", "NAMED_DATA_PROVIDER_NOT_FOUND", "NAMED_DATA_NOT_FOUND", "NAMED_DATA_KIND_MISMATCH", "NAMED_DATA_SCOPE_MISMATCH", "NAMED_DATA_SCHEMA_NOT_FOUND", "NAMED_DATA_SCHEMA_VERSION_MISMATCH", "NAMED_DATA_SCHEMA_UNRESOLVED", "NAMED_DATA_REPRESENTATION_UNSUPPORTED", "NAMED_DATA_INVALID_METADATA", "NAMED_DATA_BODY_TOO_LARGE", "NAMED_DATA_ABORTED", "NAMED_DATA_PROVIDER_RELEASED"];
 export type NamedDataKind = (typeof NAMED_DATA_KINDS)[number];
 export type NamedDataScope = (typeof NAMED_DATA_SCOPES)[number];
 export type NamedDataRepresentation = (typeof NAMED_DATA_REPRESENTATIONS)[number];
 export type NamedDataErrorCode = (typeof NAMED_DATA_ERROR_CODES)[number];
 export type NamedDataReleaseReason = 'complete' | 'cancel' | 'abort' | 'error' | 'shutdown';
+/** Stable schema identity only. Schema documents and value payloads stay outside this registry. */
+export interface NamedDataSchemaRef {
+    readonly id: string;
+    /** Complete Semantic Version, including any prerelease or build metadata. */
+    readonly version: string;
+}
 export interface NamedDataReference {
     readonly namespace: string;
     readonly name: string;
     readonly kind: NamedDataKind;
     readonly scope: NamedDataScope;
+    readonly schemaRef?: NamedDataSchemaRef;
 }
 export interface NamedDataResolveContext {
     /** Runtime-local identity. Required only for target-scoped references. */
@@ -26,6 +35,8 @@ export interface NamedDataResolveContext {
 }
 export interface NamedDataMetadata {
     readonly reference: NamedDataReference;
+    /** Must match reference.schemaRef exactly when the reference declares one. */
+    readonly schemaRef?: NamedDataSchemaRef;
     /** Representation retained by the provider as the named value's native form. */
     readonly nativeRepresentation: NamedDataRepresentation;
     /** Representation selected for this resolved body. */

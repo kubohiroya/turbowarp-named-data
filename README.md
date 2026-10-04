@@ -7,6 +7,7 @@ A shared, runtime-neutral named-data contract and registry for unsandboxed Turbo
 ## What it does
 
 - resolves `namespace + name + kind + scope` references through registered providers;
+- carries optional versioned `schemaRef` identities on structured references and metadata;
 - exposes metadata and byte/stream bodies without copying payloads into the registry;
 - shares one registry between separately bundled extensions through a stable `Symbol.for` key;
 - separates target and project scope and cleans session resources on project stop;
@@ -21,6 +22,8 @@ globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__ = {NAMED_DATA_REGISTRY_MVP: true};
 ```
 
 Only provider descriptors, metadata, and release callbacks are retained by the registry. Body bytes and streams are returned directly and are never placed in the manifest, fixtures, or registry state.
+
+Structured references may include `schemaRef: { id, version }`. IDs use lowercase stable names such as `com.example.profile`; versions are complete Semantic Version strings. Providers must return the same identity in metadata. A mismatch fails with `NAMED_DATA_SCHEMA_VERSION_MISMATCH`; schema documents and JSON values remain the provider/consumer's responsibility. The `NAMED_DATA_SCHEMA_REF` startup flag is opt-in and defaults to `false`. Consumers that cannot resolve an identity should report `NAMED_DATA_SCHEMA_NOT_FOUND` or `NAMED_DATA_SCHEMA_UNRESOLVED`; they must not guess a version.
 
 ## Installation
 
@@ -63,6 +66,7 @@ The availability block is shown only while the MVP flag is enabled. Provider reg
 
 - kinds: `structured`, `document`, `binary`, `asset`;
 - scopes: `target`, `project`;
+- optional structured schema identity: stable schema ID plus complete SemVer version, with no schema body;
 - representations: `json`, `yaml`, `html`, `markdown`, `raw`;
 - body: `Uint8Array` or `ReadableStream<Uint8Array>`;
 - revision: opaque string;

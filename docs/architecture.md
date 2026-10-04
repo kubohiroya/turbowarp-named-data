@@ -8,6 +8,8 @@ The registry is stored on the TurboWarp runtime with `Symbol.for('@kubohiroya/tu
 
 Providers own all payload and storage state. The registry owns only `(namespace, kind)` registrations and release callbacks for currently open bodies. A namespace is a logical ownership domain while kind is the data type, so providers of different kinds may share one namespace. `openBody` returns bytes or a stream directly to the consumer. Metadata keeps `nativeRepresentation` (the stored type) separate from `representation` (the selected output), and the registry validates both against the data kind. A reference or metadata document must never contain inline bytes, base64, or a data URL.
 
+Structured references may carry the optional `schemaRef: {id, version}` descriptor. IDs are lowercase stable names and versions are complete SemVer strings. Provider metadata must repeat the exact identity; a mismatch fails with `NAMED_DATA_SCHEMA_VERSION_MISMATCH`. The registry transports identity only: schema documents, validators, and JSON values remain outside the package. Consumers report `NAMED_DATA_SCHEMA_NOT_FOUND` when an identity is absent and `NAMED_DATA_SCHEMA_UNRESOLVED` when they cannot resolve it; there is no implicit version fallback. Providers publish schema references only when the startup-fixed `NAMED_DATA_SCHEMA_REF` flag is enabled (default off).
+
 ## Package entrypoints
 
 `dist/named-data.js` is the TurboWarp IIFE and performs extension registration. `@kubohiroya/turbowarp-named-data/composition` is a separate, side-effect-free ESM entrypoint for providers and consumers. It exports the canonical contract, registry functions, and feature-flag declarations from `dist/composition.js`; TypeScript resolves its declarations from `dist/types/composition.d.ts`.
