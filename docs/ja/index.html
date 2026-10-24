@@ -1,0 +1,437 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="TurboWarp-Named-Data 拡張機能のビジュアルガイド。非サンドボックスの TurboWarp 拡張機能が共有する named-data 契約と provider registry を解説します。">
+  <title>Named Data ガイド（TurboWarp）</title>
+  <link rel="canonical" href="https://kubohiroya.github.io/turbowarp-named-data/ja/">
+  <link rel="alternate" hreflang="en" href="https://kubohiroya.github.io/turbowarp-named-data/">
+  <link rel="alternate" hreflang="ja" href="https://kubohiroya.github.io/turbowarp-named-data/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://kubohiroya.github.io/turbowarp-named-data/">
+  <link rel="icon" href="../assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/site.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">ガイド本文へ移動</a>
+  <header class="app-bar">
+    <div class="app-bar-inner">
+      <a class="app-bar-brand" href="./" aria-label="Named Data ガイドのトップ">
+        <span class="app-bar-mark" aria-hidden="true">N</span>
+        <span class="app-bar-label">Named Data</span>
+      </a>
+      <nav class="app-bar-sections" aria-label="ガイドのセクション">
+        <a href="#quick-start">はじめに</a>
+        <a href="#how-it-works">仕組み</a>
+        <a href="#composition-api">Composition API</a>
+        <a href="#lifecycle">ライフサイクル</a>
+        <a href="#reference">リファレンス</a>
+        <a href="#troubleshooting">トラブル対処</a>
+      </nav>
+      <div class="app-bar-actions">
+        <a class="app-bar-github" href="https://github.com/kubohiroya/turbowarp-named-data" aria-label="GitHubでソースコードとリリースを見る">GitHub</a>
+        <nav class="app-bar-languages" aria-label="言語">
+          <a href="../" hreflang="en" lang="en">English</a>
+          <a href="./" hreflang="ja" lang="ja" aria-current="page">日本語</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="page-shell">
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">TurboWarp カスタム拡張機能 · Composition API · v0.4.0</p>
+        <h1 id="hero-title">データはコピーせず、名前で共有する。</h1>
+        <p class="hero-copy">
+          Named Data は、非サンドボックスで動く TurboWarp 拡張機能どうしが共有する
+          データ契約と provider registry です。ある拡張機能が namespace と kind に対して
+          provider を登録すると、別の拡張機能は <code>namespace + name + kind + scope</code>
+          で参照を解決し、メタデータとバイト列またはストリームを受け取れます。
+          payload そのものが registry を経由することはありません。
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#quick-start">3 ステップで始める</a>
+          <a class="button" href="#how-it-works">図で理解する</a>
+        </div>
+      </div>
+      <div class="hero-map" aria-label="参照が provider によってメタデータと本体に解決される">
+        <div class="mini-flow">
+          <div class="mini-node">参照</div>
+          <div class="mini-arrow" aria-hidden="true">→</div>
+          <div class="mini-node mini-node-strong">Registry</div>
+        </div>
+        <div class="mini-flow">
+          <div class="mini-node">Provider</div>
+          <div class="mini-arrow" aria-hidden="true">→</div>
+          <div class="mini-node">メタデータ + 本体</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dsl4-bundle" class="section" aria-labelledby="dsl4-bundle-title">
+      <p class="eyebrow">利用している拡張機能</p>
+      <h2 id="dsl4-bundle-title">ほかの拡張機能を支える基盤です。</h2>
+      <p class="section-intro">
+        Named Data 自体のブロックはほとんどありません。価値は、データを持つ拡張機能どうしが
+        共有する registry にあります。別々にバンドルされた拡張機能も、固定キー
+        <code>Symbol.for('@kubohiroya/turbowarp-named-data/registry')</code> で同じ registry
+        を見つけるため、読み込み順やバンドル構成によって registry が分裂しません。
+      </p>
+      <div class="card-grid">
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-asset-cache/ja/">Asset Cache</a></h3>
+          <p>名前付きの画像・音声・テキスト素材を <code>asset</code> kind として公開します。</p>
+        </article>
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-structured-data/">Structured Data</a></h3>
+          <p>JSON・YAML の値を <code>structured</code> kind として公開します。schema 識別子も付けられます。</p>
+        </article>
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-document-data/">Document Data</a></h3>
+          <p>HTML・Markdown 文書を <code>document</code> kind として公開します。</p>
+        </article>
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-binary-data/">Binary Data</a></h3>
+          <p>生のバイト列を <code>binary</code> kind として公開し、ほかの拡張機能がストリームで読めるようにします。</p>
+        </article>
+      </div>
+      <aside class="callout">
+        <strong>紙芝居 DSL 4.0 ランタイム</strong>は、副作用のない composition エントリポイントを
+        組み込み、同じ registry とライフサイクル連携に参加します。統合パレットに Named Data
+        専用のメンバー見出しは追加されません。
+      </aside>
+    </section>
+
+    <section id="quick-start" class="section" aria-labelledby="quick-start-title">
+      <p class="eyebrow">はじめに</p>
+      <h2 id="quick-start-title">有効にする、読み込む、確かめる。</h2>
+      <p class="section-intro">
+        registry は起動時に固定される機能で、<strong>既定では無効</strong>です。フラグは
+        バンドルの起動時に一度だけ読まれるため、拡張機能を読み込む前に設定してください。
+      </p>
+
+      <ol class="steps">
+        <li>
+          <h3>機能フラグを有効にする</h3>
+          <p>ホストページで、または動作確認ならエディタのブラウザコンソールで設定します。</p>
+          <pre><code>globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__ = {
+  NAMED_DATA_REGISTRY_MVP: true
+};</code></pre>
+        </li>
+        <li>
+          <h3>拡張機能を読み込む</h3>
+          <p>TurboWarp で <strong>拡張機能を追加 → カスタム拡張機能</strong> を選び、次のファイルを指定して
+            <strong>サンドボックスなしで実行</strong> を有効にします。</p>
+          <pre><code>https://cdn.jsdelivr.net/npm/@kubohiroya/turbowarp-named-data@0.4.0/dist/named-data.js</code></pre>
+        </li>
+        <li>
+          <h3>使えるか確かめる</h3>
+          <p>唯一の真偽ブロックで、共有 registry が導入されたことを確認できます。</p>
+          <pre><code>もし &lt;named data registry available?&gt; なら
+  [ready] と言う</code></pre>
+        </li>
+      </ol>
+
+      <aside class="callout callout-warning">
+        <strong>フラグが無効ならパレットは空です。</strong>
+        このとき拡張機能は registry サービスも確認用ブロックも公開しません。
+        これは意図されたロールバック状態であり、エラーではありません。
+      </aside>
+    </section>
+
+    <section id="how-it-works" class="section" aria-labelledby="how-title">
+      <p class="eyebrow">仕組み</p>
+      <h2 id="how-title">registry は振り分けるだけ。データは provider が持つ。</h2>
+      <p class="section-intro">
+        registry が保持するのは、<code>(namespace, kind)</code> をキーにした provider の登録と、
+        現在開かれている本体の解放コールバックだけです。payload、保存、キャッシュはすべて
+        各 provider の中にとどまります。
+      </p>
+
+      <figure class="diagram" aria-describedby="resolution-description">
+        <figcaption>参照を解決する流れ</figcaption>
+        <p id="resolution-description" class="sr-only">
+          利用側は参照、表現形式、ターゲットまたはプロジェクトのコンテキストを registry に渡します。
+          registry は参照の namespace と kind に登録された provider を選び、解決できるかを確認してから
+          stat または openBody を呼びます。利用側はメタデータと借用した本体を受け取り、使い終えたら解放します。
+        </p>
+        <div class="hub-flow" aria-hidden="true">
+          <div class="node-stack">
+            <div class="diagram-node"><strong>参照</strong><span>namespace · name · kind · scope</span></div>
+            <div class="diagram-node"><strong>表現形式</strong><span>json · yaml · html · markdown · raw</span></div>
+            <div class="diagram-node"><strong>コンテキスト</strong><span>ターゲットまたはプロジェクト</span></div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="diagram-node diagram-node-primary">
+            <strong>Registry</strong>
+            <span>(namespace, kind) で provider を選択</span>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="node-stack">
+            <div class="diagram-node diagram-node-accent"><strong>stat</strong><span>メタデータのみ</span></div>
+            <div class="diagram-node diagram-node-accent"><strong>openBody</strong><span>メタデータ + バイト列 / ストリーム</span></div>
+            <div class="diagram-node diagram-node-accent"><strong>release</strong><span>冪等な後片付け</span></div>
+          </div>
+        </div>
+      </figure>
+
+      <h3>参照に含まれるもの</h3>
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>フィールド</th><th>値</th><th>意味</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>namespace</code></td>
+              <td>英小文字で始まり、<code>a-z 0-9 . -</code> で最大 64 文字</td>
+              <td>論理的な所有ドメイン。kind が異なる provider は同じ namespace を共有できます。</td>
+            </tr>
+            <tr>
+              <td><code>name</code></td>
+              <td>provider が定める文字列</td>
+              <td>namespace 内での値の名前。</td>
+            </tr>
+            <tr>
+              <td><code>kind</code></td>
+              <td><code>structured</code>、<code>document</code>、<code>binary</code>、<code>asset</code></td>
+              <td>データの種類。namespace と組み合わせて provider を選びます。</td>
+            </tr>
+            <tr>
+              <td><code>scope</code></td>
+              <td><code>target</code>、<code>project</code></td>
+              <td>target にはターゲット識別子、project にはプロジェクト識別子が必要です。互いに代用されることはありません。</td>
+            </tr>
+            <tr>
+              <td><code>schemaRef</code>（任意）</td>
+              <td><code>{id, version}</code></td>
+              <td>structured 参照のみ。安定した schema ID と完全な SemVer で、schema 本体は含みません。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>provider が返すもの</h3>
+      <div class="card-grid">
+        <article class="card">
+          <h3>メタデータ</h3>
+          <ul>
+            <li><code>nativeRepresentation</code>：provider が保存している形式</li>
+            <li><code>representation</code>：今回の本体で選ばれた形式</li>
+            <li><code>mediaType</code>、任意の <code>byteLength</code> と <code>sha256-</code> ダイジェスト</li>
+            <li><code>revision</code>：不透明な文字列。解析や大小比較はしない</li>
+            <li><code>replayable</code>：本体を再読できるか</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>本体</h3>
+          <ul>
+            <li><code>Uint8Array</code> または <code>ReadableStream&lt;Uint8Array&gt;</code></li>
+            <li>利用側へ直接返され、registry には保存されない</li>
+            <li>借用物なので、使い終えたら <code>release(reason)</code> を呼ぶ</li>
+          </ul>
+        </article>
+      </div>
+
+      <aside class="callout">
+        <strong>payload をどこにも埋め込みません。</strong> 参照、メタデータ、マニフェスト、
+        フィクスチャに、バイト列・base64・data URL を含めてはいけません。registry はメタデータと
+        2 つの表現形式を kind に照らして検証します。
+      </aside>
+    </section>
+
+    <section id="composition-api" class="section" aria-labelledby="composition-title">
+      <p class="eyebrow">Composition API</p>
+      <h2 id="composition-title">自作の拡張機能から提供・利用する。</h2>
+      <p class="section-intro">
+        ほかのパッケージは副作用のない ESM エントリポイントを import します。import しても
+        TurboWarp 拡張機能は登録されず、契約、registry 関数、機能フラグの宣言だけが公開されます。
+      </p>
+      <pre><code>pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.4.0</code></pre>
+
+      <div class="card-grid">
+        <article class="card">
+          <h3>provider を登録する</h3>
+          <pre><code>import {
+  installNamedDataRegistry,
+  type NamedDataProvider
+} from '@kubohiroya/turbowarp-named-data/composition';
+
+const registry = installNamedDataRegistry(runtime);
+const provider: NamedDataProvider = {
+  namespace: 'com.example.notes',
+  kind: 'document',
+  canResolve: (ref, rep) =&gt; rep === 'markdown',
+  stat: (ref, rep, ctx) =&gt; ({ /* メタデータ */ }),
+  openBody: (ref, rep, ctx) =&gt; ({ /* メタデータ, body, release */ }),
+  release: () =&gt; {}
+};
+const registration = registry.registerProvider(provider);</code></pre>
+          <p>同じ <code>(namespace, kind)</code> に 2 つ目の provider を登録すると
+            <code>NAMED_DATA_PROVIDER_CONFLICT</code> で失敗します。</p>
+        </article>
+        <article class="card">
+          <h3>参照を解決する</h3>
+          <pre><code>import {getNamedDataRegistry}
+  from '@kubohiroya/turbowarp-named-data/composition';
+
+const registry = getNamedDataRegistry(runtime);
+const opened = await registry?.openBody(
+  {namespace: 'com.example.notes', name: 'intro',
+   kind: 'document', scope: 'project'},
+  'markdown',
+  {project: projectIdentity}
+);
+try {
+  // opened.body を読む
+} finally {
+  await opened?.release('complete');
+}</code></pre>
+          <p>registry が導入されていなければ <code>getNamedDataRegistry</code> は <code>undefined</code> を返します。</p>
+        </article>
+      </div>
+
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>エクスポート</th><th>用途</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>installNamedDataRegistry(runtime)</code></td><td>共有 registry を導入する。互換な registry が既にあればそれを返す。</td></tr>
+            <tr><td><code>getNamedDataRegistry(runtime)</code></td><td>導入せずに共有 registry を取得する。</td></tr>
+            <tr><td><code>bindNamedDataRegistryLifecycle(runtime, registry)</code></td><td><code>PROJECT_STOP_ALL</code> でセッション状態を消去する。解除関数を返し、参照カウントで管理される。</td></tr>
+            <tr><td><code>NamedDataError</code>、<code>NAMED_DATA_ERROR_CODES</code></td><td>安定した <code>NAMED_DATA_*</code> コードを投げる・判定する。</td></tr>
+            <tr><td><code>NAMED_DATA_KINDS</code>、<code>NAMED_DATA_SCOPES</code>、<code>NAMED_DATA_REPRESENTATIONS</code></td><td>正規の一覧で入力を検証する。</td></tr>
+            <tr><td><code>FEATURE_FLAGS</code></td><td>バンドル起動時に確定したフラグを読む。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>型定義は <code>dist/types/composition.d.ts</code> から提供されます。通信で扱える参照の形は
+        <a href="https://github.com/kubohiroya/turbowarp-named-data/blob/main/schemas/named-data-reference.schema.json">JSON Schema</a>
+        としても公開しています。</p>
+    </section>
+
+    <section id="lifecycle" class="section" aria-labelledby="lifecycle-title">
+      <p class="eyebrow">ライフサイクルと schema 識別子</p>
+      <h2 id="lifecycle-title">停止で片付け、schema は名前で指定し推測しない。</h2>
+
+      <h3>プロジェクトを停止したとき</h3>
+      <ol class="flow-list">
+        <li>開いているすべての本体ハンドルが解放されます。</li>
+        <li>セッション provider は登録解除され、解放されます。</li>
+        <li>永続 provider は登録を保ったまま <code>clearSession()</code> を実行します。</li>
+      </ol>
+      <p><code>{lifetime: 'persistent'}</code> を指定しない登録はセッション単位です。解放処理は
+        冪等なので、provider を複数回解放しても安全です。</p>
+
+      <h3>任意の schema 参照</h3>
+      <p>
+        structured 参照には <code>schemaRef: {id, version}</code> を付けられます。例：
+        <code>{id: 'com.example.profile', version: '1.2.0'}</code>。provider はメタデータで
+        まったく同じ識別子を返す必要があります。registry が運ぶのは識別子だけで、schema 文書、
+        バリデータ、JSON 値は provider と利用側の責任です。provider が schema 参照を公開するのは、
+        別の起動時フラグ <code>NAMED_DATA_SCHEMA_REF</code> が有効なとき（既定は無効）だけです。
+      </p>
+      <aside class="callout callout-warning">
+        <strong>バージョンの暗黙的なフォールバックはありません。</strong>
+        不一致は <code>NAMED_DATA_SCHEMA_VERSION_MISMATCH</code> で失敗します。識別子がない場合、
+        利用側は <code>NAMED_DATA_SCHEMA_NOT_FOUND</code> を、解決できない場合は
+        <code>NAMED_DATA_SCHEMA_UNRESOLVED</code> を報告します。
+      </aside>
+    </section>
+
+    <section id="reference" class="section" aria-labelledby="reference-title">
+      <p class="eyebrow">リファレンス</p>
+      <h2 id="reference-title">ブロック・フラグ・エラーコード</h2>
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>やりたいこと</th><th>使うもの</th><th>重要な挙動</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>registry があるかをスクリプトで確かめる</td><td><code>named data registry available?</code></td><td><code>NAMED_DATA_REGISTRY_MVP</code> が有効な間だけ表示されます。</td></tr>
+            <tr><td>registry を有効にする</td><td><code>NAMED_DATA_REGISTRY_MVP: true</code></td><td>バンドル起動時に一度だけ読まれます。既定は無効。</td></tr>
+            <tr><td>schema 識別子を公開する</td><td><code>NAMED_DATA_SCHEMA_REF: true</code></td><td>provider 向けのオプトイン。既定は無効。</td></tr>
+            <tr><td>データを登録・読み取りする</td><td>Composition API</td><td>拡張機能間の API のみで、本体を扱う値ブロックはありません。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>ブロックの全仕様は<a href="../#extension-block-reference">英語版の完全なブロックリファレンス</a>を参照してください。</p>
+
+      <h3>エラーコード</h3>
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>コード</th><th>意味</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>NAMED_DATA_INVALID_REF</code></td><td>参照または provider の記述が不正です。</td></tr>
+            <tr><td><code>NAMED_DATA_INVALID_REGISTRY</code></td><td>共有シンボルの位置に互換でないオブジェクトがあります。上書きはされません。</td></tr>
+            <tr><td><code>NAMED_DATA_PROVIDER_CONFLICT</code></td><td>この <code>(namespace, kind)</code> には既に provider が登録されています。</td></tr>
+            <tr><td><code>NAMED_DATA_PROVIDER_NOT_FOUND</code></td><td>この namespace に provider が登録されていません。</td></tr>
+            <tr><td><code>NAMED_DATA_KIND_MISMATCH</code></td><td>namespace に provider はあるが、この kind のものはありません。</td></tr>
+            <tr><td><code>NAMED_DATA_NOT_FOUND</code></td><td>provider にその名前の値がありません。</td></tr>
+            <tr><td><code>NAMED_DATA_SCOPE_MISMATCH</code></td><td>scope が求めるターゲットまたはプロジェクトの識別子がコンテキストにありません。</td></tr>
+            <tr><td><code>NAMED_DATA_SCHEMA_NOT_FOUND</code> / <code>…_VERSION_MISMATCH</code> / <code>…_UNRESOLVED</code></td><td>schema 識別子がない、異なる、または解決できません。</td></tr>
+            <tr><td><code>NAMED_DATA_REPRESENTATION_UNSUPPORTED</code></td><td>provider が要求された表現形式を生成できません。</td></tr>
+            <tr><td><code>NAMED_DATA_INVALID_METADATA</code></td><td>provider が返したメタデータまたは本体が検証に失敗しました。</td></tr>
+            <tr><td><code>NAMED_DATA_BODY_TOO_LARGE</code></td><td>本体が provider または利用側の上限を超えています。</td></tr>
+            <tr><td><code>NAMED_DATA_ABORTED</code></td><td>コンテキストの <code>AbortSignal</code> が中断を通知しました。</td></tr>
+            <tr><td><code>NAMED_DATA_PROVIDER_RELEASED</code></td><td>要求の前または途中で provider が解放されました。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="troubleshooting" class="section" aria-labelledby="troubleshooting-title">
+      <p class="eyebrow">トラブル対処</p>
+      <h2 id="troubleshooting-title">参照が解決できないとき</h2>
+      <details open>
+        <summary>パレットにブロックが表示されない</summary>
+        <div>
+          バンドル起動時に <code>NAMED_DATA_REGISTRY_MVP</code> が <code>true</code> ではありませんでした。
+          先に <code>globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__</code> を設定し、エディタを再読み込みしてから
+          拡張機能を読み込み直してください。読み込み後にフラグを変えても効果はありません。
+        </div>
+      </details>
+      <details>
+        <summary>拡張機能が読み込めない</summary>
+        <div>
+          Named Data はサンドボックスなしで実行する必要があります。カスタム拡張機能ダイアログで
+          <strong>サンドボックスなしで実行</strong> を有効にしてください。信頼できる拡張機能コードだけを読み込んでください。
+        </div>
+      </details>
+      <details>
+        <summary>2 つの拡張機能が別々の registry を見ている</summary>
+        <div>
+          両方が同じ TurboWarp ランタイムに対して <code>installNamedDataRegistry</code> または
+          <code>getNamedDataRegistry</code> を使う必要があります。拡張機能内で作った私的な registry は共有されません。
+          シンボルの位置に互換でないオブジェクトがある場合は <code>NAMED_DATA_INVALID_REGISTRY</code> で失敗します。
+        </div>
+      </details>
+      <details>
+        <summary>target scope の参照がプロジェクトのコンテキストで失敗する</summary>
+        <div>
+          target scope には <code>context.target</code>、project scope には <code>context.project</code> が必要です。
+          registry は一方を他方で代用せず、<code>NAMED_DATA_SCOPE_MISMATCH</code> を報告します。
+        </div>
+      </details>
+      <details>
+        <summary>停止ボタンを押すとデータが消える</summary>
+        <div>
+          セッション provider は <code>PROJECT_STOP_ALL</code> で解放されます。長く使う provider は
+          <code>{lifetime: 'persistent'}</code> で登録し、<code>clearSession()</code> で実行ごとの状態だけを消去してください。
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>TurboWarp-Named-Data · MPL-2.0 · <a href="https://github.com/kubohiroya/turbowarp-named-data/blob/main/docs/architecture.ja.md">アーキテクチャ</a></p>
+      <p><a href="https://github.com/kubohiroya/turbowarp-named-data/issues">問題を報告する</a></p>
+    </div>
+  </footer>
+</body>
+</html>
