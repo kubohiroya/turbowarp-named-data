@@ -1,6 +1,17 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Named Data</title><style>body{font-family:system-ui,sans-serif;max-width:900px;margin:auto;padding:2rem;line-height:1.6}code,pre{background:#f3f3f3}pre{padding:1rem;overflow:auto}</style><style id="block-reference-style">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Visual guide for the TurboWarp-Named-Data extension: a shared named-data contract and provider registry for unsandboxed TurboWarp extensions.">
+  <title>Named Data guide for TurboWarp</title>
+  <link rel="canonical" href="https://kubohiroya.github.io/turbowarp-named-data/">
+  <link rel="alternate" hreflang="en" href="https://kubohiroya.github.io/turbowarp-named-data/">
+  <link rel="alternate" hreflang="ja" href="https://kubohiroya.github.io/turbowarp-named-data/ja/">
+  <link rel="alternate" hreflang="x-default" href="https://kubohiroya.github.io/turbowarp-named-data/">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/site.css">
+<style id="block-reference-style">
 #extension-block-reference{max-width:72rem;margin:2rem auto;padding:1rem;line-height:1.6;overflow-wrap:anywhere}
 #extension-block-reference .block-reference-entry{display:block;scroll-margin-top:6rem;margin:2rem 0;padding:1rem;border:1px solid currentColor;border-radius:.5rem}
 #extension-block-reference .block-reference-table{overflow-x:auto}
@@ -10,15 +21,431 @@
 #extension-block-reference a:focus-visible{outline:3px solid currentColor;outline-offset:3px}
 </style>
 </head>
-<body><p lang="en" class="complete-block-reference-link"><a href="#extension-block-reference">Complete block reference (1 blocks)</a></p>
-  <h1>Named Data</h1>
-  <p>A shared named-data reference and provider registry for unsandboxed TurboWarp extensions.</p>
-  <h2>Enable the MVP</h2>
-  <pre><code>globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__ = {NAMED_DATA_REGISTRY_MVP: true};</code></pre>
-  <p>Set the startup-fixed flag before loading <code>dist/named-data.js</code>. It is disabled by default.</p>
-  <h2>Contract</h2>
-  <p>Providers resolve structured, document, binary, and asset references into metadata and a releasable byte or stream body. Payload is never embedded in a reference or manifest.</p>
-  <p>See the repository README and architecture documents for provider and lifecycle details.</p>
+<body>
+  <a class="skip-link" href="#main">Skip to the guide</a>
+  <header class="app-bar">
+    <div class="app-bar-inner">
+      <a class="app-bar-brand" href="./" aria-label="Named Data guide home">
+        <span class="app-bar-mark" aria-hidden="true">N</span>
+        <span class="app-bar-label">Named Data</span>
+      </a>
+      <nav class="app-bar-sections" aria-label="Guide sections">
+        <a href="#quick-start">Quick start</a>
+        <a href="#how-it-works">How it works</a>
+        <a href="#composition-api">Composition API</a>
+        <a href="#lifecycle">Lifecycle</a>
+        <a href="#reference">Reference</a>
+        <a href="#troubleshooting">Troubleshooting</a>
+      </nav>
+      <div class="app-bar-actions">
+        <a class="app-bar-github" href="https://github.com/kubohiroya/turbowarp-named-data" aria-label="Source code and releases on GitHub">GitHub</a>
+        <nav class="app-bar-languages" aria-label="Language">
+          <a href="./" hreflang="en" lang="en" aria-current="page">English</a>
+          <a href="ja/" hreflang="ja" lang="ja">日本語</a>
+        </nav>
+      </div>
+    </div>
+  </header>
+
+  <main id="main" class="page-shell"><p lang="en" class="complete-block-reference-link"><a href="#extension-block-reference">Complete block reference (1 blocks)</a></p>
+    <section class="hero" aria-labelledby="hero-title">
+      <div>
+        <p class="eyebrow">TurboWarp custom extension · Composition API · v0.4.0</p>
+        <h1 id="hero-title">Share data between extensions by name, not by copy.</h1>
+        <p class="hero-copy">
+          Named Data is a shared contract and provider registry for unsandboxed TurboWarp
+          extensions. One extension registers a provider for a namespace and kind; any other
+          extension resolves <code>namespace + name + kind + scope</code> and receives metadata and
+          a byte or stream body, without the payload ever passing through the registry.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="#quick-start">Start in three steps</a>
+          <a class="button" href="#how-it-works">See the diagrams</a>
+        </div>
+      </div>
+      <div class="hero-map" aria-label="A reference is resolved by a provider into metadata and a body">
+        <div class="mini-flow">
+          <div class="mini-node">Reference</div>
+          <div class="mini-arrow" aria-hidden="true">→</div>
+          <div class="mini-node mini-node-strong">Registry</div>
+        </div>
+        <div class="mini-flow">
+          <div class="mini-node">Provider</div>
+          <div class="mini-arrow" aria-hidden="true">→</div>
+          <div class="mini-node">Metadata + body</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="dsl4-bundle" class="section" aria-labelledby="dsl4-bundle-title">
+      <p class="eyebrow">Who uses it</p>
+      <h2 id="dsl4-bundle-title">Infrastructure for the other extensions.</h2>
+      <p class="section-intro">
+        Named Data has almost no blocks of its own. Its value is the registry that data-owning
+        extensions share. Separately bundled extensions find the same registry through the stable
+        key <code>Symbol.for('@kubohiroya/turbowarp-named-data/registry')</code>, so load order and
+        bundling do not split it.
+      </p>
+      <div class="card-grid">
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-asset-cache/">Asset Cache</a></h3>
+          <p>Publishes named image, audio, and text assets as the <code>asset</code> kind.</p>
+        </article>
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-structured-data/">Structured Data</a></h3>
+          <p>Publishes JSON and YAML values as the <code>structured</code> kind, optionally with a schema identity.</p>
+        </article>
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-document-data/">Document Data</a></h3>
+          <p>Publishes HTML and Markdown documents as the <code>document</code> kind.</p>
+        </article>
+        <article class="card">
+          <h3><a href="https://kubohiroya.github.io/turbowarp-binary-data/">Binary Data</a></h3>
+          <p>Publishes raw bytes as the <code>binary</code> kind for other extensions to stream.</p>
+        </article>
+      </div>
+      <aside class="callout">
+        <strong>Kamishibai DSL 4.0 runtimes</strong> embed the side-effect-free composition entrypoint
+        and join the same registry and lifecycle binding. Named Data does not add a separate member
+        heading to the combined palette.
+      </aside>
+    </section>
+
+    <section id="quick-start" class="section" aria-labelledby="quick-start-title">
+      <p class="eyebrow">Quick start</p>
+      <h2 id="quick-start-title">Enable, load, check.</h2>
+      <p class="section-intro">
+        The registry is a startup-fixed feature that is <strong>off by default</strong>. The flag
+        is read once when the bundle starts, so it must be set before the extension loads.
+      </p>
+
+      <ol class="steps">
+        <li>
+          <h3>Enable the feature flag</h3>
+          <p>In the host page, or in the editor's browser console for a quick test, set:</p>
+          <pre><code>globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__ = {
+  NAMED_DATA_REGISTRY_MVP: true
+};</code></pre>
+        </li>
+        <li>
+          <h3>Load the extension</h3>
+          <p>In TurboWarp, choose <strong>Add Extension → Custom Extension</strong>, use this file,
+            and enable <strong>Run extension without sandbox</strong>:</p>
+          <pre><code>https://cdn.jsdelivr.net/npm/@kubohiroya/turbowarp-named-data@0.4.0/dist/named-data.js</code></pre>
+        </li>
+        <li>
+          <h3>Check availability</h3>
+          <p>The single Boolean block confirms that the shared registry was installed.</p>
+          <pre><code>if &lt;named data registry available?&gt; then
+  say [ready]</code></pre>
+        </li>
+      </ol>
+
+      <aside class="callout callout-warning">
+        <strong>With the flag off, the palette is empty.</strong>
+        The extension then publishes neither the registry service nor the availability block.
+        This is the intended rollback state, not an error.
+      </aside>
+    </section>
+
+    <section id="how-it-works" class="section" aria-labelledby="how-title">
+      <p class="eyebrow">How it works</p>
+      <h2 id="how-title">The registry routes; providers own the data.</h2>
+      <p class="section-intro">
+        The registry keeps only provider registrations, keyed by <code>(namespace, kind)</code>,
+        and the release callbacks of bodies that are currently open. Payload, storage, and caching
+        stay inside each provider.
+      </p>
+
+      <figure class="diagram" aria-describedby="resolution-description">
+        <figcaption>Resolving a reference</figcaption>
+        <p id="resolution-description" class="sr-only">
+          A consumer passes a reference, a representation, and a target or project context to the
+          registry. The registry selects the provider registered for the reference's namespace and
+          kind, asks whether it can resolve the request, then calls stat or openBody. The consumer
+          receives metadata and a borrowed body, and releases it when finished.
+        </p>
+        <div class="hub-flow" aria-hidden="true">
+          <div class="node-stack">
+            <div class="diagram-node"><strong>Reference</strong><span>namespace · name · kind · scope</span></div>
+            <div class="diagram-node"><strong>Representation</strong><span>json · yaml · html · markdown · raw</span></div>
+            <div class="diagram-node"><strong>Context</strong><span>target or project identity</span></div>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="diagram-node diagram-node-primary">
+            <strong>Registry</strong>
+            <span>select provider by (namespace, kind)</span>
+          </div>
+          <div class="flow-arrow">→</div>
+          <div class="node-stack">
+            <div class="diagram-node diagram-node-accent"><strong>stat</strong><span>metadata only</span></div>
+            <div class="diagram-node diagram-node-accent"><strong>openBody</strong><span>metadata + bytes or stream</span></div>
+            <div class="diagram-node diagram-node-accent"><strong>release</strong><span>idempotent cleanup</span></div>
+          </div>
+        </div>
+      </figure>
+
+      <h3>What a reference contains</h3>
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Field</th><th>Values</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>namespace</code></td>
+              <td>Lowercase, starts with a letter, up to 64 of <code>a-z 0-9 . -</code></td>
+              <td>Logical ownership domain. Providers of different kinds may share one namespace.</td>
+            </tr>
+            <tr>
+              <td><code>name</code></td>
+              <td>Provider-defined string</td>
+              <td>The value's name inside the namespace.</td>
+            </tr>
+            <tr>
+              <td><code>kind</code></td>
+              <td><code>structured</code>, <code>document</code>, <code>binary</code>, <code>asset</code></td>
+              <td>Data type. Together with the namespace it selects the provider.</td>
+            </tr>
+            <tr>
+              <td><code>scope</code></td>
+              <td><code>target</code>, <code>project</code></td>
+              <td>Target scope needs a target identity; project scope needs a project identity. One is never substituted for the other.</td>
+            </tr>
+            <tr>
+              <td><code>schemaRef</code> (optional)</td>
+              <td><code>{id, version}</code></td>
+              <td>Structured references only. A stable schema ID and a complete SemVer version, never a schema body.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>What a provider returns</h3>
+      <div class="card-grid">
+        <article class="card">
+          <h3>Metadata</h3>
+          <ul>
+            <li><code>nativeRepresentation</code>: how the provider stores it</li>
+            <li><code>representation</code>: the form selected for this body</li>
+            <li><code>mediaType</code>, optional <code>byteLength</code> and <code>sha256-</code> digest</li>
+            <li><code>revision</code>: opaque; never parse or order it</li>
+            <li><code>replayable</code>: whether the body can be read again</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Body</h3>
+          <ul>
+            <li><code>Uint8Array</code> or <code>ReadableStream&lt;Uint8Array&gt;</code></li>
+            <li>Returned directly to the consumer, never stored in the registry</li>
+            <li>Borrowed: call <code>release(reason)</code> when finished</li>
+          </ul>
+        </article>
+      </div>
+
+      <aside class="callout">
+        <strong>No inline payload anywhere.</strong> References, metadata, manifests, and fixtures
+        must never contain bytes, base64, or data URLs. The registry validates metadata and both
+        representations against the data kind.
+      </aside>
+    </section>
+
+    <section id="composition-api" class="section" aria-labelledby="composition-title">
+      <p class="eyebrow">Composition API</p>
+      <h2 id="composition-title">Provide and consume from your own extension.</h2>
+      <p class="section-intro">
+        Other packages import the side-effect-free ESM entrypoint. Importing it does not register a
+        TurboWarp extension; it only exposes the contract, registry functions, and feature-flag
+        declarations.
+      </p>
+      <pre><code>pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.4.0</code></pre>
+
+      <div class="card-grid">
+        <article class="card">
+          <h3>Register a provider</h3>
+          <pre><code>import {
+  installNamedDataRegistry,
+  type NamedDataProvider
+} from '@kubohiroya/turbowarp-named-data/composition';
+
+const registry = installNamedDataRegistry(runtime);
+const provider: NamedDataProvider = {
+  namespace: 'com.example.notes',
+  kind: 'document',
+  canResolve: (ref, rep) =&gt; rep === 'markdown',
+  stat: (ref, rep, ctx) =&gt; ({ /* metadata */ }),
+  openBody: (ref, rep, ctx) =&gt; ({ /* metadata, body, release */ }),
+  release: () =&gt; {}
+};
+const registration = registry.registerProvider(provider);</code></pre>
+          <p>A second provider for the same <code>(namespace, kind)</code> fails with
+            <code>NAMED_DATA_PROVIDER_CONFLICT</code>.</p>
+        </article>
+        <article class="card">
+          <h3>Resolve a reference</h3>
+          <pre><code>import {getNamedDataRegistry}
+  from '@kubohiroya/turbowarp-named-data/composition';
+
+const registry = getNamedDataRegistry(runtime);
+const opened = await registry?.openBody(
+  {namespace: 'com.example.notes', name: 'intro',
+   kind: 'document', scope: 'project'},
+  'markdown',
+  {project: projectIdentity}
+);
+try {
+  // read opened.body
+} finally {
+  await opened?.release('complete');
+}</code></pre>
+          <p><code>getNamedDataRegistry</code> returns <code>undefined</code> when no registry is installed.</p>
+        </article>
+      </div>
+
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Export</th><th>Use it to…</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>installNamedDataRegistry(runtime)</code></td><td>Install the shared registry, or return the compatible one already on the runtime.</td></tr>
+            <tr><td><code>getNamedDataRegistry(runtime)</code></td><td>Retrieve the shared registry without installing one.</td></tr>
+            <tr><td><code>bindNamedDataRegistryLifecycle(runtime, registry)</code></td><td>Clear session state on <code>PROJECT_STOP_ALL</code>. Returns an unbind function; bindings are reference-counted.</td></tr>
+            <tr><td><code>NamedDataError</code>, <code>NAMED_DATA_ERROR_CODES</code></td><td>Throw and recognize stable <code>NAMED_DATA_*</code> codes.</td></tr>
+            <tr><td><code>NAMED_DATA_KINDS</code>, <code>NAMED_DATA_SCOPES</code>, <code>NAMED_DATA_REPRESENTATIONS</code></td><td>Validate inputs against the canonical lists.</td></tr>
+            <tr><td><code>FEATURE_FLAGS</code></td><td>Read the startup-fixed flags the bundle saw.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Types are published from <code>dist/types/composition.d.ts</code>. The wire-safe reference
+        shape is also available as <a href="https://github.com/kubohiroya/turbowarp-named-data/blob/main/schemas/named-data-reference.schema.json">a JSON Schema</a>.</p>
+    </section>
+
+    <section id="lifecycle" class="section" aria-labelledby="lifecycle-title">
+      <p class="eyebrow">Lifecycle and schema identity</p>
+      <h2 id="lifecycle-title">Stop cleans up; schemas are named, never guessed.</h2>
+
+      <h3>When the project stops</h3>
+      <ol class="flow-list">
+        <li>Every open body handle is released.</li>
+        <li>Session providers are unregistered and released.</li>
+        <li>Persistent providers keep their registration and run <code>clearSession()</code>.</li>
+      </ol>
+      <p>Registrations are session-scoped unless registered with
+        <code>{lifetime: 'persistent'}</code>. Release operations are idempotent, so a provider can
+        safely be released more than once.</p>
+
+      <h3>Optional schema references</h3>
+      <p>
+        Structured references may carry <code>schemaRef: {id, version}</code>, for example
+        <code>{id: 'com.example.profile', version: '1.2.0'}</code>. The provider must return the
+        exact same identity in its metadata. The registry transports the identity only; schema
+        documents, validators, and JSON values remain the provider's and consumer's responsibility.
+        Providers publish schema references only when the separate startup flag
+        <code>NAMED_DATA_SCHEMA_REF</code> is enabled (default off).
+      </p>
+      <aside class="callout callout-warning">
+        <strong>There is no implicit version fallback.</strong>
+        A mismatch fails with <code>NAMED_DATA_SCHEMA_VERSION_MISMATCH</code>. A consumer that has
+        no identity reports <code>NAMED_DATA_SCHEMA_NOT_FOUND</code>; one that cannot resolve it
+        reports <code>NAMED_DATA_SCHEMA_UNRESOLVED</code>.
+      </aside>
+    </section>
+
+    <section id="reference" class="section" aria-labelledby="reference-title">
+      <p class="eyebrow">Reference</p>
+      <h2 id="reference-title">Blocks, flags, and error codes</h2>
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>I want to…</th><th>Use</th><th>Important behavior</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Check from a script that the registry exists</td><td><code>named data registry available?</code></td><td>Shown only while <code>NAMED_DATA_REGISTRY_MVP</code> is on.</td></tr>
+            <tr><td>Turn the registry on</td><td><code>NAMED_DATA_REGISTRY_MVP: true</code></td><td>Read once at bundle startup; default off.</td></tr>
+            <tr><td>Publish schema identities</td><td><code>NAMED_DATA_SCHEMA_REF: true</code></td><td>Opt-in for providers; default off.</td></tr>
+            <tr><td>Register or read data</td><td>Composition API</td><td>Extension-to-extension only; there are no value blocks for bodies.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Error codes</h3>
+      <div class="resource-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Code</th><th>Meaning</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>NAMED_DATA_INVALID_REF</code></td><td>The reference or provider descriptor is malformed.</td></tr>
+            <tr><td><code>NAMED_DATA_INVALID_REGISTRY</code></td><td>The shared symbol slot holds an incompatible object. It is never overwritten.</td></tr>
+            <tr><td><code>NAMED_DATA_PROVIDER_CONFLICT</code></td><td>A provider is already registered for this <code>(namespace, kind)</code>.</td></tr>
+            <tr><td><code>NAMED_DATA_PROVIDER_NOT_FOUND</code></td><td>No provider is registered for this namespace.</td></tr>
+            <tr><td><code>NAMED_DATA_KIND_MISMATCH</code></td><td>The namespace has providers, but none for this kind.</td></tr>
+            <tr><td><code>NAMED_DATA_NOT_FOUND</code></td><td>The provider has no value under this name.</td></tr>
+            <tr><td><code>NAMED_DATA_SCOPE_MISMATCH</code></td><td>The context lacks the target or project identity the scope requires.</td></tr>
+            <tr><td><code>NAMED_DATA_SCHEMA_NOT_FOUND</code> / <code>…_VERSION_MISMATCH</code> / <code>…_UNRESOLVED</code></td><td>Schema identity is missing, differs, or cannot be resolved.</td></tr>
+            <tr><td><code>NAMED_DATA_REPRESENTATION_UNSUPPORTED</code></td><td>The provider cannot produce the requested representation.</td></tr>
+            <tr><td><code>NAMED_DATA_INVALID_METADATA</code></td><td>The provider returned metadata or a body that fails validation.</td></tr>
+            <tr><td><code>NAMED_DATA_BODY_TOO_LARGE</code></td><td>The body exceeds a provider or consumer limit.</td></tr>
+            <tr><td><code>NAMED_DATA_ABORTED</code></td><td>The context's <code>AbortSignal</code> fired.</td></tr>
+            <tr><td><code>NAMED_DATA_PROVIDER_RELEASED</code></td><td>The provider was released before or during the request.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="troubleshooting" class="section" aria-labelledby="troubleshooting-title">
+      <p class="eyebrow">Troubleshooting</p>
+      <h2 id="troubleshooting-title">When a reference does not resolve</h2>
+      <details open>
+        <summary>The palette shows no blocks</summary>
+        <div>
+          <code>NAMED_DATA_REGISTRY_MVP</code> was not <code>true</code> when the bundle started.
+          Set <code>globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__</code> first, then reload the editor
+          and load the extension again. Changing the flag after loading has no effect.
+        </div>
+      </details>
+      <details>
+        <summary>The extension refuses to load</summary>
+        <div>
+          Named Data must run unsandboxed. Enable <strong>Run extension without sandbox</strong> in
+          the custom extension dialog. Only load extension code you trust.
+        </div>
+      </details>
+      <details>
+        <summary>Two extensions see different registries</summary>
+        <div>
+          Both must use <code>installNamedDataRegistry</code> or <code>getNamedDataRegistry</code>
+          on the same TurboWarp runtime. A private registry created inside one extension is not
+          shared. If the symbol slot already holds an incompatible object, the call fails with
+          <code>NAMED_DATA_INVALID_REGISTRY</code>.
+        </div>
+      </details>
+      <details>
+        <summary>A target-scoped reference fails in project context</summary>
+        <div>
+          Target scope requires <code>context.target</code> and project scope requires
+          <code>context.project</code>. The registry reports <code>NAMED_DATA_SCOPE_MISMATCH</code>
+          instead of substituting one for the other.
+        </div>
+      </details>
+      <details>
+        <summary>Data disappears after pressing stop</summary>
+        <div>
+          Session providers are released on <code>PROJECT_STOP_ALL</code>. Register long-lived
+          providers with <code>{lifetime: 'persistent'}</code> and implement
+          <code>clearSession()</code> to drop only per-run state.
+        </div>
+      </details>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p>TurboWarp-Named-Data · MPL-2.0 · <a href="https://github.com/kubohiroya/turbowarp-named-data/blob/main/docs/architecture.md">Architecture</a></p>
+      <p><a href="https://github.com/kubohiroya/turbowarp-named-data/issues">Report a problem</a></p>
+    </div>
+  </footer>
 <!-- BEGIN COMPLETE BLOCK REFERENCE -->
 <section lang="en" id="extension-block-reference" aria-labelledby="block-reference-title">
 <h2 id="block-reference-title">Named Data: complete block reference</h2>
