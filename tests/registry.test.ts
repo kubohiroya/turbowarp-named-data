@@ -168,6 +168,25 @@ describe('NamedDataRegistry', () => {
     });
   });
 
+  it('preserves structured schema identity when opening a body', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    const schemaRef = {id: 'com.example.profile', version: '1.2.3'};
+    source.openBody = async (reference, representation) => ({
+      reference: {...reference}, schemaRef,
+      nativeRepresentation: representation, representation,
+      mediaType: 'application/json', revision: 'opaque:r1', replayable: true,
+      body: new TextEncoder().encode('{"name":"Ada"}'),
+      release: vi.fn(async () => undefined)
+    });
+    registry.registerProvider(source);
+    const opened = await registry.openBody(
+      {...targetReference, schemaRef}, 'json', {target: {}}
+    );
+    expect(opened.schemaRef).toEqual(schemaRef);
+    await opened.release();
+  });
+
   it('validates schema identity format and limits it to structured references', async () => {
     const registry = new NamedDataRegistry();
     registry.registerProvider(provider());
