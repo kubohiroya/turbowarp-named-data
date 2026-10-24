@@ -8,7 +8,7 @@ registryは`Symbol.for('@kubohiroya/turbowarp-named-data/registry')`を使って
 
 payloadとstorage stateはproviderが所有します。registryが保持するのは`(namespace, kind)`登録と、open中bodyのrelease callbackだけです。namespaceは論理的な所有領域、kindはデータ型であり、同じnamespaceへ異なるkindのproviderを登録できます。`openBody`はbyte列またはstreamをconsumerへ直接返します。metadataの`nativeRepresentation`は保存時の型、`representation`は今回選択した出力表現を示し、registryはkindとの整合を検証します。参照やmetadataへinline bytes、base64、data URLを含めてはいけません。
 
-structured referenceには任意の`schemaRef: {id, version}`を含められます。IDは小文字の安定名、versionは完全なSemVerです。provider metadataは同じidentityを返し、不一致は`NAMED_DATA_SCHEMA_VERSION_MISMATCH`になります。registryはidentityだけを運び、Schema本体、validator、JSON値は保持しません。consumerは参照先不在を`NAMED_DATA_SCHEMA_NOT_FOUND`、解決不能を`NAMED_DATA_SCHEMA_UNRESOLVED`として扱い、暗黙のversion fallbackを行いません。providerは起動時固定の`NAMED_DATA_SCHEMA_REF` flag（既定OFF）が有効な場合だけ公開します。
+structured referenceには任意の`schemaRef: {id, version}`を含められます。IDは小文字の安定名、versionは完全なSemVerです。provider metadataは同じidentityを返し、不一致は`NAMED_DATA_SCHEMA_VERSION_MISMATCH`になります。registryは検証済みidentityの凍結コピーを返すため、provider側で後から変更されてもconsumerが見る値は変わりません。registryはidentityだけを運び、Schema本体、validator、JSON値は保持しません。consumerは参照先不在を`NAMED_DATA_SCHEMA_NOT_FOUND`、解決不能を`NAMED_DATA_SCHEMA_UNRESOLVED`として扱い、暗黙のversion fallbackを行いません。providerは起動時固定の`NAMED_DATA_SCHEMA_REF` flag（既定OFF）が有効な場合だけ公開します。
 
 ## Package entrypoint
 

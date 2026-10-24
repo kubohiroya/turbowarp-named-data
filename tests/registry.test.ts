@@ -196,6 +196,159 @@ describe('NamedDataRegistry', () => {
       .rejects.toMatchObject({code: 'NAMED_DATA_INVALID_REF'});
   });
 
+  it('rejects schema identity that the provider drops, adds, or rewrites', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    const schemaRef = {id: 'com.example.profile', version: '1.2.3'};
+    const respond = (overrides: Partial<NamedDataMetadata>) => {
+      source.stat = (reference, representation) => ({
+        reference: {...reference}, nativeRepresentation: representation, representation,
+        mediaType: 'application/json', revision: 'opaque:r1', replayable: true, ...overrides
+      });
+    };
+    registry.registerProvider(source);
+    const bound: NamedDataReference = {...targetReference, schemaRef};
+    const mismatch = {code: 'NAMED_DATA_SCHEMA_VERSION_MISMATCH'};
+
+    respond({});
+    await expect(registry.stat(bound, 'json', {target: {}})).rejects.toMatchObject(mismatch);
+    respond({schemaRef});
+    await expect(registry.stat(targetReference, 'json', {target: {}})).rejects.toMatchObject(mismatch);
+    respond({schemaRef: {...schemaRef, id: 'com.example.other'}});
+    await expect(registry.stat(bound, 'json', {target: {}})).rejects.toMatchObject(mismatch);
+    respond({schemaRef, reference: {...targetReference, schemaRef: {...schemaRef, version: '2.0.0'}}});
+    await expect(registry.stat(bound, 'json', {target: {}})).rejects.toMatchObject(mismatch);
+  });
+
+  it('rejects malformed provider schema identity as invalid metadata', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    registry.registerProvider(source);
+    const bound: NamedDataReference = {
+      ...targetReference, schemaRef: {id: 'com.example.profile', version: '1.2.3'}
+    };
+    for (const schemaRef of [
+      {id: 'com.example.profile', version: '1.2'},
+      {id: 'com.example.profile', version: '1.2.3', schema: {type: 'object'}},
+      {id: 'com.example.profile', version: 123},
+      null
+    ]) {
+      source.stat = (reference, representation) => ({
+        reference: {...reference}, nativeRepresentation: representation, representation,
+        mediaType: 'application/json', revision: 'opaque:r1', replayable: true,
+        schemaRef: schemaRef as unknown as {id: string; version: string}
+      });
+      await expect(registry.stat(bound, 'json', {target: {}})).rejects.toMatchObject({
+        code: 'NAMED_DATA_INVALID_METADATA'
+      });
+    }
+  });
+
+  it('returns a frozen schema identity snapshot detached from provider state', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    const providerSchemaRef = {id: 'com.example.profile', version: '1.2.3'};
+    const metadata = (reference: NamedDataReference, representation: NamedDataRepresentation) => ({
+      reference: {...reference, schemaRef: providerSchemaRef}, schemaRef: providerSchemaRef,
+      nativeRepresentation: representation, representation,
+      mediaType: 'application/json', revision: 'opaque:r1', replayable: true
+    });
+    source.stat = metadata;
+    source.openBody = (reference, representation) => ({
+      ...metadata(reference, representation), body: new Uint8Array(), release: vi.fn()
+    });
+    registry.registerProvider(source);
+    const bound: NamedDataReference = {
+      ...targetReference, schemaRef: {id: 'com.example.profile', version: '1.2.3'}
+    };
+
+    const stat = await registry.stat(bound, 'json', {target: {}});
+    const opened = await registry.openBody(bound, 'json', {target: {}});
+    providerSchemaRef.version = '9.9.9';
+    for (const result of [stat, opened]) {
+      expect(result.schemaRef).toEqual({id: 'com.example.profile', version: '1.2.3'});
+      expect(result.reference.schemaRef).toEqual({id: 'com.example.profile', version: '1.2.3'});
+      expect(Object.isFrozen(result.schemaRef)).toBe(true);
+      expect(Object.isFrozen(result.reference)).toBe(true);
+    }
+    await opened.release();
+  });
+
+  it('accepts complete SemVer identities and rejects partial versions on requests', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    source.stat = (reference, representation) => ({
+      reference: {...reference}, ...(reference.schemaRef ? {schemaRef: {...reference.schemaRef}} : {}),
+      nativeRepresentation: representation, representation,
+      mediaType: 'application/json', revision: 'opaque:r1', replayable: true
+    });
+    registry.registerProvider(source);
+    for (const version of ['0.0.0', '1.2.3-rc.1', '1.2.3+build.7', '1.2.3-alpha.1+sha.abc']) {
+      const reference = {...targetReference, schemaRef: {id: 'com.example.profile', version}};
+      await expect(registry.stat(reference, 'json', {target: {}})).resolves.toMatchObject({
+        schemaRef: {version}
+      });
+    }
+    for (const version of ['1', '1.2', 'v1.2.3', '01.2.3', '1.2.3-']) {
+      const reference = {...targetReference, schemaRef: {id: 'com.example.profile', version}};
+      expect(registry.canResolve(reference, 'json')).toBe(false);
+      await expect(registry.stat(reference, 'json', {target: {}})).rejects.toMatchObject({
+        code: 'NAMED_DATA_INVALID_REF'
+      });
+    }
+  });
+
+  it('keeps kind and scope checks ahead of schema identity', async () => {
+    const registry = new NamedDataRegistry();
+    registry.registerProvider(provider('structured', 'document'));
+    const bound: NamedDataReference = {
+      ...targetReference, schemaRef: {id: 'com.example.profile', version: '1.0.0'}
+    };
+    await expect(registry.stat(bound, 'json', {target: {}})).rejects.toMatchObject({
+      code: 'NAMED_DATA_KIND_MISMATCH'
+    });
+    registry.registerProvider(provider());
+    await expect(registry.stat(bound, 'json', {project: {}})).rejects.toMatchObject({
+      code: 'NAMED_DATA_SCOPE_MISMATCH'
+    });
+  });
+
+  it('passes provider schema resolution errors through with stable codes', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    registry.registerProvider(source);
+    const bound: NamedDataReference = {
+      ...targetReference, schemaRef: {id: 'com.example.profile', version: '1.0.0'}
+    };
+    for (const code of ['NAMED_DATA_SCHEMA_NOT_FOUND', 'NAMED_DATA_SCHEMA_UNRESOLVED'] as const) {
+      source.stat = () => { throw new NamedDataError(code, 'schema'); };
+      source.openBody = () => { throw Object.assign(new Error('schema'), {code}); };
+      await expect(registry.stat(bound, 'json', {target: {}})).rejects.toMatchObject({code});
+      await expect(registry.openBody(bound, 'json', {target: {}})).rejects.toMatchObject({code});
+    }
+  });
+
+  it('releases schema-bound bodies on project stop like any other body', async () => {
+    const registry = new NamedDataRegistry();
+    const source = provider();
+    const schemaRef = {id: 'com.example.profile', version: '1.0.0'};
+    const bodyRelease = vi.fn<NamedDataBody['release']>();
+    source.openBody = (reference, representation) => ({
+      reference: {...reference}, schemaRef: {...schemaRef},
+      nativeRepresentation: representation, representation,
+      mediaType: 'application/json', revision: 'opaque:r1', replayable: true,
+      body: new Uint8Array([123, 125]), release: bodyRelease
+    });
+    registry.registerProvider(source);
+    await registry.openBody({...targetReference, schemaRef}, 'json', {target: {}});
+    await registry.clearSession();
+    expect(bodyRelease).toHaveBeenCalledWith('shutdown');
+    expect(source.releaseMock).toHaveBeenCalledWith('shutdown');
+    await expect(registry.stat({...targetReference, schemaRef}, 'json', {target: {}})).rejects.toMatchObject({
+      code: 'NAMED_DATA_PROVIDER_NOT_FOUND'
+    });
+  });
+
   it('distinguishes a missing provider from an unsupported representation', async () => {
     const registry = new NamedDataRegistry();
     await expect(

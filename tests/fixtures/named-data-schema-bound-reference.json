@@ -1,0 +1,8 @@
+{
+  "namespace": "structured",
+  "name": "profile",
+  "kind": "structured",
+  "scope": "target",
+  "representation": "json",
+  "schemaRef": {"id": "com.example.profile", "version": "1.2.3"}
+}

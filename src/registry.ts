@@ -18,7 +18,8 @@ import {
   type NamedDataRegistryService,
   type NamedDataReleaseReason,
   type NamedDataRepresentation,
-  type NamedDataResolveContext
+  type NamedDataResolveContext,
+  type NamedDataSchemaRef
 } from './contract.js';
 
 type RuntimeHost = object & {[NAMED_DATA_REGISTRY_SYMBOL]?: unknown};
@@ -102,7 +103,7 @@ export class NamedDataRegistry implements NamedDataRegistryService {
     const provider = this.resolveProvider(reference, representation, context);
     throwIfAborted(context.signal);
     try {
-      const metadata = await provider.stat(reference, representation, context);
+      const metadata = snapshotMetadata(await provider.stat(reference, representation, context));
       throwIfAborted(context.signal);
       validateMetadata(metadata, reference, representation);
       return metadata;
@@ -119,9 +120,11 @@ export class NamedDataRegistry implements NamedDataRegistryService {
     const provider = this.resolveProvider(reference, representation, context);
     throwIfAborted(context.signal);
     let opened: NamedDataBody;
+    let metadata: NamedDataMetadata;
     try {
       opened = await provider.openBody(reference, representation, context);
-      validateMetadata(opened, reference, representation);
+      metadata = snapshotMetadata(opened);
+      validateMetadata(metadata, reference, representation);
       if (!(opened.body instanceof Uint8Array) && !(opened.body instanceof ReadableStream)) {
         throw new NamedDataError('NAMED_DATA_INVALID_METADATA', 'Provider returned an invalid body.');
       }
@@ -161,15 +164,7 @@ export class NamedDataRegistry implements NamedDataRegistryService {
       }
     }
     return Object.freeze({
-      reference: Object.freeze({...opened.reference}),
-      nativeRepresentation: opened.nativeRepresentation,
-      representation: opened.representation,
-      mediaType: opened.mediaType,
-      ...(opened.byteLength === undefined ? {} : {byteLength: opened.byteLength}),
-      ...(opened.digest === undefined ? {} : {digest: opened.digest}),
-      revision: opened.revision,
-      replayable: opened.replayable,
-      ...(opened.schemaRef === undefined ? {} : {schemaRef: opened.schemaRef}),
+      ...metadata,
       body: opened.body,
       release: tracked.release
     });
@@ -388,7 +383,7 @@ function validateMetadata(
       (!Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 0)) ||
     (metadata.digest !== undefined && !/^sha256-[A-Za-z0-9_-]+$/u.test(metadata.digest))
   ) {
-    throw new NamedDataError('NAMED_DATA_INVALID_METADATA', 'Provider returned invalid metadata.');
+    throw invalidMetadata();
   }
   const expectedSchema = reference.schemaRef;
   const actualSchema = metadata.schemaRef;
@@ -409,6 +404,49 @@ function validateMetadata(
   }
 }
 
+/**
+ * Copies provider metadata once so validation and consumers observe the same frozen identity.
+ * Fields are read exactly once; payload bodies are never part of the snapshot.
+ */
+function snapshotMetadata(metadata: NamedDataMetadata): NamedDataMetadata {
+  if (typeof metadata !== 'object' || metadata === null) throw invalidMetadata();
+  const source = metadata.reference as unknown;
+  if (typeof source !== 'object' || source === null) throw invalidMetadata();
+  const {namespace, name, kind, scope, schemaRef: referenceSchemaRef} = source as NamedDataReference;
+  const {nativeRepresentation, representation, mediaType, byteLength, digest, revision, replayable, schemaRef} =
+    metadata;
+  const reference = snapshotSchemaRef(referenceSchemaRef);
+  const resolved = snapshotSchemaRef(schemaRef);
+  return Object.freeze({
+    reference: Object.freeze({
+      namespace, name, kind, scope,
+      ...(reference === undefined ? {} : {schemaRef: reference})
+    }),
+    nativeRepresentation,
+    representation,
+    mediaType,
+    ...(byteLength === undefined ? {} : {byteLength}),
+    ...(digest === undefined ? {} : {digest}),
+    revision,
+    replayable,
+    ...(resolved === undefined ? {} : {schemaRef: resolved})
+  });
+}
+
+function snapshotSchemaRef(schemaRef: unknown): NamedDataSchemaRef | undefined {
+  if (schemaRef === undefined) return undefined;
+  if (typeof schemaRef !== 'object' || schemaRef === null || Object.keys(schemaRef).some(
+    (key) => key !== 'id' && key !== 'version'
+  )) {
+    throw invalidSchemaRef('NAMED_DATA_INVALID_METADATA');
+  }
+  const {id, version} = schemaRef as {id?: unknown; version?: unknown};
+  if (typeof id !== 'string' || typeof version !== 'string') {
+    throw invalidSchemaRef('NAMED_DATA_INVALID_METADATA');
+  }
+  return Object.freeze({id, version});
+}
+
 function validateSchemaRef(
   kind: NamedDataReference['kind'],
   schemaRef: unknown,
@@ -421,11 +459,21 @@ function validateSchemaRef(
     !NAMED_DATA_SCHEMA_VERSION_PATTERN.test(String((schemaRef as {version?: unknown}).version ?? '')) ||
     Object.keys(schemaRef).some((key) => key !== 'id' && key !== 'version')
   ) {
-    throw new NamedDataError(
-      errorCode,
-      'Invalid schemaRef; schema references require a structured value, stable id, and full SemVer version.'
-    );
+    throw invalidSchemaRef(errorCode);
   }
+}
+
+function invalidSchemaRef(
+  errorCode: 'NAMED_DATA_INVALID_REF' | 'NAMED_DATA_INVALID_METADATA'
+): NamedDataError {
+  return new NamedDataError(
+    errorCode,
+    'Invalid schemaRef; schema references require a structured value, stable id, and full SemVer version.'
+  );
+}
+
+function invalidMetadata(): NamedDataError {
+  return new NamedDataError('NAMED_DATA_INVALID_METADATA', 'Provider returned invalid metadata.');
 }
 
 function sameSchemaRef(
