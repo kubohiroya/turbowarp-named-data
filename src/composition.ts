@@ -17,6 +17,7 @@ export {
   type NamedDataProvider,
   type NamedDataProviderRegistration,
   type NamedDataReference,
+  type NamedDataSchemaRef,
   type NamedDataRegistryService,
   type NamedDataReleaseReason,
   type NamedDataRepresentation,
