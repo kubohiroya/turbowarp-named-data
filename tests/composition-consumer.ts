@@ -4,6 +4,7 @@ import {
   type NamedDataBody,
   type NamedDataProvider,
   type NamedDataReference,
+  type NamedDataSchemaRef,
   type NamedDataRegistryService,
   type NamedDataRepresentation,
   type NamedDataResolveContext,
@@ -25,6 +26,7 @@ const schemaBoundStructuredReference: NamedDataReference = {
   namespace: 'fixture', name: 'profile', kind: 'structured', scope: 'project',
   schemaRef: {id: 'com.example.profile', version: '1.0.0'}
 };
+const schemaRef: NamedDataSchemaRef = {id: 'com.example.profile', version: '1.0.0'};
 
 const provider: NamedDataProvider = {
   namespace: 'fixture',
@@ -56,5 +58,6 @@ registry.registerProvider(provider);
 void registry.stat(reference, 'html', context);
 void sameRegistry;
 void schemaBoundStructuredReference;
+void schemaRef;
 void NAMED_DATA_REGISTRY_MVP_DEFAULT;
 void NamedDataError;
