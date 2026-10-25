@@ -2,7 +2,7 @@
 
 <img src="assets/block-icon.svg" alt="" width="48" height="48">
 
-[English](README.md)
+[English](README.md) | 日本語
 
 unsandboxed TurboWarp機能拡張間で共有する、runtime-neutralなNamed Data契約とregistryです。
 
