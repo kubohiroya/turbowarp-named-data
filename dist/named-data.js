@@ -7,424 +7,424 @@
 (function (Scratch) {
   'use strict';
 
-  //#region src/config.ts
-  var extensionConfig = {
-  	id: "kubohiroyanameddata",
-  	slug: "named-data",
-  	name: "Named Data",
-  	description: "Shared named-data references and provider registry for TurboWarp extensions.",
-  	author: "Hiroya Kubo",
-  	license: "MPL-2.0",
-  	unsandboxed: true,
-  	docsURI: "https://kubohiroya.github.io/turbowarp-named-data/",
-  	blockIconURI: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHJlY3QgeD0iNCIgeT0iOCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzhBNTVENyIvPjxwYXRoIGQ9Ik0yMiAxNWgxMGEzIDMgMCAwIDEgMyAzdjEyYTMgMyAwIDAgMS0zIDNIMjJsLTgtOXoiIGZpbGw9IiNmZmYiLz48Y2lyY2xlIGN4PSIyMCIgY3k9IjI0IiByPSIyLjIiIGZpbGw9IiM4QTU1RDciLz48L3N2Zz4="
-  };
-  var block_definitions_default = {
-  	extensionName: "Named Data",
-  	runtimeServices: [{
-  		"id": "named-data-registry",
-  		"symbolKey": "@kubohiroya/turbowarp-named-data/registry",
-  		"featureFlag": "NAMED_DATA_REGISTRY_MVP",
-  		"defaultEnabled": false
-  	}],
-  	blocks: [{
-  		"opcode": "isRegistryAvailable",
-  		"blockType": "BOOLEAN",
-  		"text": "named data registry available?",
-  		"description": "Reports whether the startup-fixed Named Data registry feature is enabled.",
-  		"arguments": {}
-  	}]
-  };
-  //#endregion
-  //#region src/feature-flags.ts
-  function configuredFlag(name) {
-  	const value = globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__?.[name];
-  	return value === true || value === "true";
-  }
-  /** Startup-fixed rollout flags. Configure these before loading the bundle. */
-  var FEATURE_FLAGS = Object.freeze({
-  	NAMED_DATA_REGISTRY_MVP: configuredFlag("NAMED_DATA_REGISTRY_MVP"),
-  	NAMED_DATA_SCHEMA_REF: configuredFlag("NAMED_DATA_SCHEMA_REF")
-  });
-  //#endregion
-  //#region src/contract.ts
-  var NAMED_DATA_REGISTRY_SYMBOL_KEY = "@kubohiroya/turbowarp-named-data/registry";
-  var NAMED_DATA_REGISTRY_SYMBOL = Symbol.for(NAMED_DATA_REGISTRY_SYMBOL_KEY);
-  var NAMED_DATA_NAMESPACE_PATTERN = /^[a-z][a-z0-9.-]{0,63}$/u;
-  function isNamedDataNamespace(value) {
-  	return typeof value === "string" && NAMED_DATA_NAMESPACE_PATTERN.test(value);
-  }
-  var NAMED_DATA_KINDS = [
-  	"structured",
-  	"document",
-  	"binary",
-  	"asset"
-  ];
-  var NAMED_DATA_SCOPES = ["target", "project"];
-  var NAMED_DATA_REPRESENTATIONS = [
-  	"json",
-  	"yaml",
-  	"html",
-  	"markdown",
-  	"raw"
-  ];
-  var NAMED_DATA_SCHEMA_ID_PATTERN = /^[a-z][a-z0-9.-]{0,127}$/u;
-  var NAMED_DATA_SCHEMA_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
-  var NAMED_DATA_ERROR_CODES = [
-  	"NAMED_DATA_INVALID_REF",
-  	"NAMED_DATA_INVALID_REGISTRY",
-  	"NAMED_DATA_PROVIDER_CONFLICT",
-  	"NAMED_DATA_PROVIDER_NOT_FOUND",
-  	"NAMED_DATA_NOT_FOUND",
-  	"NAMED_DATA_KIND_MISMATCH",
-  	"NAMED_DATA_SCOPE_MISMATCH",
-  	"NAMED_DATA_SCHEMA_NOT_FOUND",
-  	"NAMED_DATA_SCHEMA_VERSION_MISMATCH",
-  	"NAMED_DATA_SCHEMA_UNRESOLVED",
-  	"NAMED_DATA_REPRESENTATION_UNSUPPORTED",
-  	"NAMED_DATA_INVALID_METADATA",
-  	"NAMED_DATA_BODY_TOO_LARGE",
-  	"NAMED_DATA_ABORTED",
-  	"NAMED_DATA_PROVIDER_RELEASED"
-  ];
-  var NamedDataError = class extends Error {
-  	constructor(code, message, options) {
-  		super(`${code}: ${message}`, options);
-  		this.code = code;
-  		this.name = "NamedDataError";
-  	}
-  };
-  //#endregion
-  //#region src/registry.ts
-  var LIFECYCLE_SYMBOL = Symbol.for("@kubohiroya/turbowarp-named-data/lifecycle");
-  var errorCodes = new Set(NAMED_DATA_ERROR_CODES);
-  var NamedDataRegistry = class {
-  	constructor() {
-  		this.providers = /* @__PURE__ */ new Map();
-  		this.handles = /* @__PURE__ */ new Set();
-  	}
-  	registerProvider(provider, options = {}) {
-  		requireNamespace(provider.namespace);
-  		if (!NAMED_DATA_KINDS.includes(provider.kind)) throw new NamedDataError("NAMED_DATA_INVALID_REF", `Unknown provider kind: ${provider.kind}`);
-  		const key = providerKey(provider.namespace, provider.kind);
-  		if (this.providers.has(key)) throw new NamedDataError("NAMED_DATA_PROVIDER_CONFLICT", `Provider is already registered: ${provider.namespace}/${provider.kind}`);
-  		const entry = {
-  			provider,
-  			lifetime: options.lifetime ?? "session"
-  		};
-  		this.providers.set(key, entry);
-  		let active = true;
-  		return {
-  			namespace: provider.namespace,
-  			kind: provider.kind,
-  			unregister: async () => {
-  				if (!active) return;
-  				active = false;
-  				if (this.providers.get(key) === entry) {
-  					this.providers.delete(key);
-  					await this.releaseHandlesForProvider(provider.namespace, provider.kind);
-  					await provider.release("shutdown");
-  				}
-  			}
-  		};
-  	}
-  	canResolve(reference, representation) {
-  		try {
-  			validateReferenceShape(reference, representation);
-  			return (this.providers.get(providerKey(reference.namespace, reference.kind))?.provider)?.canResolve(reference, representation) ?? false;
-  		} catch {
-  			return false;
-  		}
-  	}
-  	async stat(reference, representation, context = {}) {
-  		const provider = this.resolveProvider(reference, representation, context);
-  		throwIfAborted(context.signal);
-  		try {
-  			const metadata = snapshotMetadata(await provider.stat(reference, representation, context));
-  			throwIfAborted(context.signal);
-  			validateMetadata(metadata, reference, representation);
-  			return metadata;
-  		} catch (error) {
-  			throw normalizeProviderError(error);
-  		}
-  	}
-  	async openBody(reference, representation, context = {}) {
-  		const provider = this.resolveProvider(reference, representation, context);
-  		throwIfAborted(context.signal);
-  		let opened;
-  		let metadata;
-  		try {
-  			opened = await provider.openBody(reference, representation, context);
-  			metadata = snapshotMetadata(opened);
-  			validateMetadata(metadata, reference, representation);
-  			if (!(opened.body instanceof Uint8Array) && !(opened.body instanceof ReadableStream)) throw new NamedDataError("NAMED_DATA_INVALID_METADATA", "Provider returned an invalid body.");
-  		} catch (error) {
-  			throw normalizeProviderError(error);
-  		}
-  		if (context.signal?.aborted) {
-  			await opened.release("abort");
-  			throw abortedError();
-  		}
-  		let released = false;
-  		let abortListener;
-  		const tracked = {
-  			namespace: reference.namespace,
-  			kind: reference.kind,
-  			release: async (reason = "complete") => {
-  				if (released) return;
-  				released = true;
-  				if (abortListener && context.signal) context.signal.removeEventListener("abort", abortListener);
-  				this.handles.delete(tracked);
-  				await opened.release(reason);
-  			}
-  		};
-  		this.handles.add(tracked);
-  		if (context.signal) {
-  			abortListener = () => {
-  				Promise.resolve(tracked.release("abort")).catch(() => void 0);
-  			};
-  			context.signal.addEventListener("abort", abortListener, { once: true });
-  			if (context.signal.aborted) {
-  				await tracked.release("abort");
-  				throw abortedError();
-  			}
-  		}
-  		return Object.freeze({
-  			...metadata,
-  			body: opened.body,
-  			release: tracked.release
-  		});
-  	}
-  	async clearSession() {
-  		const handles = [...this.handles];
-  		this.handles.clear();
-  		await Promise.allSettled(handles.map((handle) => handle.release("shutdown")));
-  		const sessionEntries = [...this.providers.entries()].filter(([, entry]) => entry.lifetime === "session");
-  		for (const [namespace] of sessionEntries) this.providers.delete(namespace);
-  		await Promise.allSettled(sessionEntries.map(([, entry]) => entry.provider.release("shutdown")));
-  		await Promise.allSettled([...this.providers.values()].map((entry) => entry.provider.clearSession?.()));
-  	}
-  	resolveProvider(reference, representation, context) {
-  		validateReference(reference, representation, context);
-  		const provider = this.providers.get(providerKey(reference.namespace, reference.kind))?.provider;
-  		if (!provider) {
-  			const hasNamespace = [...this.providers.values()].some((entry) => entry.provider.namespace === reference.namespace);
-  			throw new NamedDataError(hasNamespace ? "NAMED_DATA_KIND_MISMATCH" : "NAMED_DATA_PROVIDER_NOT_FOUND", hasNamespace ? `No provider for kind ${reference.kind} is registered in namespace ${reference.namespace}.` : `No provider can resolve namespace: ${reference.namespace}`);
-  		}
-  		if (!provider.canResolve(reference, representation)) throw new NamedDataError("NAMED_DATA_REPRESENTATION_UNSUPPORTED", `Provider ${reference.namespace} does not support representation: ${representation}`);
-  		return provider;
-  	}
-  	async releaseHandlesForProvider(namespace, kind) {
-  		const handles = [...this.handles].filter((handle) => handle.namespace === namespace && handle.kind === kind);
-  		await Promise.allSettled(handles.map((handle) => handle.release("shutdown")));
-  	}
-  };
-  function installNamedDataRegistry(runtime) {
-  	const host = runtime;
-  	const existing = host[NAMED_DATA_REGISTRY_SYMBOL];
-  	if (existing !== void 0) return requireCompatibleRegistry(existing);
-  	const registry = new NamedDataRegistry();
-  	Object.defineProperty(host, NAMED_DATA_REGISTRY_SYMBOL, {
-  		configurable: true,
-  		enumerable: false,
-  		writable: false,
-  		value: registry
-  	});
-  	return registry;
-  }
-  function bindNamedDataRegistryLifecycle(runtime, registry) {
-  	const host = runtime;
-  	const existing = host[LIFECYCLE_SYMBOL];
-  	if (existing !== void 0) {
-  		if (!isLifecycleBinding(existing) || existing.registry !== registry) throw new NamedDataError("NAMED_DATA_INVALID_REGISTRY", "Runtime already has a lifecycle binding for a different registry.");
-  		existing.references += 1;
-  		return lifecycleUnbind(runtime, host, existing);
-  	}
-  	const listener = () => {
-  		registry.clearSession();
-  	};
-  	runtime.on("PROJECT_STOP_ALL", listener);
-  	const binding = {
-  		registry,
-  		listener,
-  		references: 1
-  	};
-  	Object.defineProperty(host, LIFECYCLE_SYMBOL, {
-  		configurable: true,
-  		enumerable: false,
-  		writable: false,
-  		value: binding
-  	});
-  	return lifecycleUnbind(runtime, host, binding);
-  }
-  function isLifecycleBinding(value) {
-  	if (typeof value !== "object" || value === null) return false;
-  	const candidate = value;
-  	return isCompatibleRegistry(candidate.registry) && typeof candidate.listener === "function" && Number.isSafeInteger(candidate.references) && (candidate.references ?? -1) >= 0;
-  }
-  function lifecycleUnbind(runtime, host, binding) {
-  	let active = true;
-  	return () => {
-  		if (!active || host[LIFECYCLE_SYMBOL] !== binding) return;
-  		active = false;
-  		binding.references -= 1;
-  		if (binding.references > 0) return;
-  		if (runtime.off) {
-  			runtime.off("PROJECT_STOP_ALL", binding.listener);
-  			delete host[LIFECYCLE_SYMBOL];
-  		}
-  	};
-  }
-  function requireCompatibleRegistry(value) {
-  	if (isCompatibleRegistry(value)) return value;
-  	throw new NamedDataError("NAMED_DATA_INVALID_REGISTRY", `Runtime slot ${NAMED_DATA_REGISTRY_SYMBOL_KEY} contains an invalid registry.`);
-  }
-  function isCompatibleRegistry(value) {
-  	if (typeof value !== "object" || value === null) return false;
-  	try {
-  		const candidate = value;
-  		return typeof candidate.registerProvider === "function" && typeof candidate.canResolve === "function" && typeof candidate.stat === "function" && typeof candidate.openBody === "function" && typeof candidate.clearSession === "function";
-  	} catch {
-  		return false;
-  	}
-  }
-  function validateReference(reference, representation, context) {
-  	validateReferenceShape(reference, representation);
-  	if (reference.scope === "target" && context.target === void 0) throw new NamedDataError("NAMED_DATA_SCOPE_MISMATCH", "Target scope requires target context.");
-  	if (reference.scope === "project" && context.project === void 0) throw new NamedDataError("NAMED_DATA_SCOPE_MISMATCH", "Project scope requires project context.");
-  	throwIfAborted(context.signal);
-  }
-  function validateReferenceShape(reference, representation) {
-  	if (!reference || typeof reference !== "object") throw invalidReference();
-  	requireNamespace(reference.namespace);
-  	if (typeof reference.name !== "string" || reference.name.length === 0 || reference.name.length > 256 || containsControlCharacter(reference.name) || !NAMED_DATA_KINDS.includes(reference.kind) || !NAMED_DATA_SCOPES.includes(reference.scope) || !NAMED_DATA_REPRESENTATIONS.includes(representation)) throw invalidReference();
-  	if (reference.schemaRef !== void 0) validateSchemaRef(reference.kind, reference.schemaRef);
-  }
-  function validateMetadata(metadata, reference, representation) {
-  	if (metadata.representation !== representation || !isNativeRepresentation(metadata.reference.kind, metadata.nativeRepresentation) || metadata.reference.namespace !== reference.namespace || metadata.reference.name !== reference.name || metadata.reference.kind !== reference.kind || metadata.reference.scope !== reference.scope || typeof metadata.mediaType !== "string" || metadata.mediaType.length === 0 || typeof metadata.revision !== "string" || metadata.revision.length === 0 || typeof metadata.replayable !== "boolean" || metadata.byteLength !== void 0 && (!Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 0) || metadata.digest !== void 0 && !/^sha256-[A-Za-z0-9_-]+$/u.test(metadata.digest)) throw invalidMetadata();
-  	const expectedSchema = reference.schemaRef;
-  	const actualSchema = metadata.schemaRef;
-  	if (actualSchema !== void 0) validateSchemaRef(metadata.reference.kind, actualSchema, "NAMED_DATA_INVALID_METADATA");
-  	if (metadata.reference.schemaRef !== void 0) validateSchemaRef(metadata.reference.kind, metadata.reference.schemaRef, "NAMED_DATA_INVALID_METADATA");
-  	if (!sameSchemaRef(expectedSchema, actualSchema) || !sameSchemaRef(expectedSchema, metadata.reference.schemaRef)) throw new NamedDataError("NAMED_DATA_SCHEMA_VERSION_MISMATCH", "Provider schemaRef does not match the requested reference.");
-  }
-  /**
-  * Copies provider metadata once so validation and consumers observe the same frozen identity.
-  * Fields are read exactly once; payload bodies are never part of the snapshot.
-  */
-  function snapshotMetadata(metadata) {
-  	if (typeof metadata !== "object" || metadata === null) throw invalidMetadata();
-  	const source = metadata.reference;
-  	if (typeof source !== "object" || source === null) throw invalidMetadata();
-  	const { namespace, name, kind, scope, schemaRef: referenceSchemaRef } = source;
-  	const { nativeRepresentation, representation, mediaType, byteLength, digest, revision, replayable, schemaRef } = metadata;
-  	const reference = snapshotSchemaRef(referenceSchemaRef);
-  	const resolved = snapshotSchemaRef(schemaRef);
-  	return Object.freeze({
-  		reference: Object.freeze({
-  			namespace,
-  			name,
-  			kind,
-  			scope,
-  			...reference === void 0 ? {} : { schemaRef: reference }
-  		}),
-  		nativeRepresentation,
-  		representation,
-  		mediaType,
-  		...byteLength === void 0 ? {} : { byteLength },
-  		...digest === void 0 ? {} : { digest },
-  		revision,
-  		replayable,
-  		...resolved === void 0 ? {} : { schemaRef: resolved }
-  	});
-  }
-  function snapshotSchemaRef(schemaRef) {
-  	if (schemaRef === void 0) return void 0;
-  	if (typeof schemaRef !== "object" || schemaRef === null || Object.keys(schemaRef).some((key) => key !== "id" && key !== "version")) throw invalidSchemaRef("NAMED_DATA_INVALID_METADATA");
-  	const { id, version } = schemaRef;
-  	if (typeof id !== "string" || typeof version !== "string") throw invalidSchemaRef("NAMED_DATA_INVALID_METADATA");
-  	return Object.freeze({
-  		id,
-  		version
-  	});
-  }
-  function validateSchemaRef(kind, schemaRef, errorCode = "NAMED_DATA_INVALID_REF") {
-  	if (kind !== "structured" || typeof schemaRef !== "object" || schemaRef === null || !NAMED_DATA_SCHEMA_ID_PATTERN.test(String(schemaRef.id ?? "")) || !NAMED_DATA_SCHEMA_VERSION_PATTERN.test(String(schemaRef.version ?? "")) || Object.keys(schemaRef).some((key) => key !== "id" && key !== "version")) throw invalidSchemaRef(errorCode);
-  }
-  function invalidSchemaRef(errorCode) {
-  	return new NamedDataError(errorCode, "Invalid schemaRef; schema references require a structured value, stable id, and full SemVer version.");
-  }
-  function invalidMetadata() {
-  	return new NamedDataError("NAMED_DATA_INVALID_METADATA", "Provider returned invalid metadata.");
-  }
-  function sameSchemaRef(left, right) {
-  	return left === void 0 ? right === void 0 : right !== void 0 && left.id === right.id && left.version === right.version;
-  }
-  function isNativeRepresentation(kind, representation) {
-  	if (kind === "structured") return representation === "json" || representation === "yaml";
-  	if (kind === "document") return representation === "html" || representation === "markdown";
-  	return representation === "raw";
-  }
-  function requireNamespace(namespace) {
-  	if (!isNamedDataNamespace(namespace)) throw invalidReference("Invalid namespace.");
-  }
-  function providerKey(namespace, kind) {
-  	return `${namespace}\0${kind}`;
-  }
-  function containsControlCharacter(value) {
-  	return [...value].some((character) => {
-  		const code = character.codePointAt(0) ?? 0;
-  		return code <= 31 || code === 127;
-  	});
-  }
-  function invalidReference(message = "Invalid named-data reference.") {
-  	return new NamedDataError("NAMED_DATA_INVALID_REF", message);
-  }
-  function throwIfAborted(signal) {
-  	if (signal?.aborted) throw abortedError();
-  }
-  function abortedError() {
-  	return new NamedDataError("NAMED_DATA_ABORTED", "Named-data operation was aborted.");
-  }
-  function normalizeProviderError(error) {
-  	if (error instanceof NamedDataError) return error;
-  	if (error instanceof Error && "code" in error && typeof error.code === "string" && errorCodes.has(error.code)) return new NamedDataError(error.code, error.message, { cause: error });
-  	return new NamedDataError("NAMED_DATA_PROVIDER_RELEASED", "Provider operation failed.", { cause: error });
-  }
-  //#endregion
-  //#region src/extension.ts
-  var NamedDataExtension = class {
-  	constructor(runtime, featureFlags = FEATURE_FLAGS) {
-  		if (featureFlags.NAMED_DATA_REGISTRY_MVP) {
-  			this.registry = installNamedDataRegistry(runtime);
-  			this.unbindLifecycle = bindNamedDataRegistryLifecycle(runtime, this.registry);
-  		}
-  	}
-  	getInfo() {
-  		return {
-  			id: extensionConfig.id,
-  			name: Scratch.translate(block_definitions_default.extensionName),
-  			docsURI: extensionConfig.docsURI,
-  			blockIconURI: extensionConfig.blockIconURI,
-  			blocks: this.registry ? [{
-  				opcode: "isRegistryAvailable",
-  				blockType: Scratch.BlockType.BOOLEAN,
-  				text: Scratch.translate("named data registry available?")
-  			}] : []
-  		};
-  	}
-  	isRegistryAvailable() {
-  		return this.registry !== void 0;
-  	}
-  	/** Used by hosts that unload extensions without stopping the project. */
-  	dispose() {
-  		this.unbindLifecycle?.();
-  	}
-  };
-  //#endregion
-  //#region src/index.ts
-  if (extensionConfig.unsandboxed && !Scratch.extensions.unsandboxed) throw new Error(`${extensionConfig.name} must run unsandboxed.`);
-  Scratch.extensions.register(new NamedDataExtension(Scratch.vm.runtime));
-  //#endregion
+//#region src/config.ts
+var extensionConfig = {
+	id: "kubohiroyanameddata",
+	slug: "named-data",
+	name: "Named Data",
+	description: "Shared named-data references and provider registry for TurboWarp extensions.",
+	author: "Hiroya Kubo",
+	license: "MPL-2.0",
+	unsandboxed: true,
+	docsURI: "https://kubohiroya.github.io/turbowarp-named-data/",
+	blockIconURI: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHJlY3QgeD0iNCIgeT0iOCIgd2lkdGg9IjQwIiBoZWlnaHQ9IjMyIiByeD0iNiIgZmlsbD0iIzhBNTVENyIvPjxwYXRoIGQ9Ik0yMiAxNWgxMGEzIDMgMCAwIDEgMyAzdjEyYTMgMyAwIDAgMS0zIDNIMjJsLTgtOXoiIGZpbGw9IiNmZmYiLz48Y2lyY2xlIGN4PSIyMCIgY3k9IjI0IiByPSIyLjIiIGZpbGw9IiM4QTU1RDciLz48L3N2Zz4="
+};
+var block_definitions_default = {
+	extensionName: "Named Data",
+	runtimeServices: [{
+		"id": "named-data-registry",
+		"symbolKey": "@kubohiroya/turbowarp-named-data/registry",
+		"featureFlag": "NAMED_DATA_REGISTRY_MVP",
+		"defaultEnabled": false
+	}],
+	blocks: [{
+		"opcode": "isRegistryAvailable",
+		"blockType": "BOOLEAN",
+		"text": "named data registry available?",
+		"description": "Reports whether the startup-fixed Named Data registry feature is enabled.",
+		"arguments": {}
+	}]
+};
+//#endregion
+//#region src/feature-flags.ts
+function configuredFlag(name) {
+	const value = globalThis.__TW_NAMED_DATA_FEATURE_FLAGS__?.[name];
+	return value === true || value === "true";
+}
+/** Startup-fixed rollout flags. Configure these before loading the bundle. */
+var FEATURE_FLAGS = Object.freeze({
+	NAMED_DATA_REGISTRY_MVP: configuredFlag("NAMED_DATA_REGISTRY_MVP"),
+	NAMED_DATA_SCHEMA_REF: configuredFlag("NAMED_DATA_SCHEMA_REF")
+});
+//#endregion
+//#region src/contract.ts
+var NAMED_DATA_REGISTRY_SYMBOL_KEY = "@kubohiroya/turbowarp-named-data/registry";
+var NAMED_DATA_REGISTRY_SYMBOL = Symbol.for(NAMED_DATA_REGISTRY_SYMBOL_KEY);
+var NAMED_DATA_NAMESPACE_PATTERN = /^[a-z][a-z0-9.-]{0,63}$/u;
+function isNamedDataNamespace(value) {
+	return typeof value === "string" && NAMED_DATA_NAMESPACE_PATTERN.test(value);
+}
+var NAMED_DATA_KINDS = [
+	"structured",
+	"document",
+	"binary",
+	"asset"
+];
+var NAMED_DATA_SCOPES = ["target", "project"];
+var NAMED_DATA_REPRESENTATIONS = [
+	"json",
+	"yaml",
+	"html",
+	"markdown",
+	"raw"
+];
+var NAMED_DATA_SCHEMA_ID_PATTERN = /^[a-z][a-z0-9.-]{0,127}$/u;
+var NAMED_DATA_SCHEMA_VERSION_PATTERN = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-((?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*))?(?:\+([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$/u;
+var NAMED_DATA_ERROR_CODES = [
+	"NAMED_DATA_INVALID_REF",
+	"NAMED_DATA_INVALID_REGISTRY",
+	"NAMED_DATA_PROVIDER_CONFLICT",
+	"NAMED_DATA_PROVIDER_NOT_FOUND",
+	"NAMED_DATA_NOT_FOUND",
+	"NAMED_DATA_KIND_MISMATCH",
+	"NAMED_DATA_SCOPE_MISMATCH",
+	"NAMED_DATA_SCHEMA_NOT_FOUND",
+	"NAMED_DATA_SCHEMA_VERSION_MISMATCH",
+	"NAMED_DATA_SCHEMA_UNRESOLVED",
+	"NAMED_DATA_REPRESENTATION_UNSUPPORTED",
+	"NAMED_DATA_INVALID_METADATA",
+	"NAMED_DATA_BODY_TOO_LARGE",
+	"NAMED_DATA_ABORTED",
+	"NAMED_DATA_PROVIDER_RELEASED"
+];
+var NamedDataError = class extends Error {
+	constructor(code, message, options) {
+		super(`${code}: ${message}`, options);
+		this.code = code;
+		this.name = "NamedDataError";
+	}
+};
+//#endregion
+//#region src/registry.ts
+var LIFECYCLE_SYMBOL = Symbol.for("@kubohiroya/turbowarp-named-data/lifecycle");
+var errorCodes = new Set(NAMED_DATA_ERROR_CODES);
+var NamedDataRegistry = class {
+	constructor() {
+		this.providers = /* @__PURE__ */ new Map();
+		this.handles = /* @__PURE__ */ new Set();
+	}
+	registerProvider(provider, options = {}) {
+		requireNamespace(provider.namespace);
+		if (!NAMED_DATA_KINDS.includes(provider.kind)) throw new NamedDataError("NAMED_DATA_INVALID_REF", `Unknown provider kind: ${provider.kind}`);
+		const key = providerKey(provider.namespace, provider.kind);
+		if (this.providers.has(key)) throw new NamedDataError("NAMED_DATA_PROVIDER_CONFLICT", `Provider is already registered: ${provider.namespace}/${provider.kind}`);
+		const entry = {
+			provider,
+			lifetime: options.lifetime ?? "session"
+		};
+		this.providers.set(key, entry);
+		let active = true;
+		return {
+			namespace: provider.namespace,
+			kind: provider.kind,
+			unregister: async () => {
+				if (!active) return;
+				active = false;
+				if (this.providers.get(key) === entry) {
+					this.providers.delete(key);
+					await this.releaseHandlesForProvider(provider.namespace, provider.kind);
+					await provider.release("shutdown");
+				}
+			}
+		};
+	}
+	canResolve(reference, representation) {
+		try {
+			validateReferenceShape(reference, representation);
+			return (this.providers.get(providerKey(reference.namespace, reference.kind))?.provider)?.canResolve(reference, representation) ?? false;
+		} catch {
+			return false;
+		}
+	}
+	async stat(reference, representation, context = {}) {
+		const provider = this.resolveProvider(reference, representation, context);
+		throwIfAborted(context.signal);
+		try {
+			const metadata = snapshotMetadata(await provider.stat(reference, representation, context));
+			throwIfAborted(context.signal);
+			validateMetadata(metadata, reference, representation);
+			return metadata;
+		} catch (error) {
+			throw normalizeProviderError(error);
+		}
+	}
+	async openBody(reference, representation, context = {}) {
+		const provider = this.resolveProvider(reference, representation, context);
+		throwIfAborted(context.signal);
+		let opened;
+		let metadata;
+		try {
+			opened = await provider.openBody(reference, representation, context);
+			metadata = snapshotMetadata(opened);
+			validateMetadata(metadata, reference, representation);
+			if (!(opened.body instanceof Uint8Array) && !(opened.body instanceof ReadableStream)) throw new NamedDataError("NAMED_DATA_INVALID_METADATA", "Provider returned an invalid body.");
+		} catch (error) {
+			throw normalizeProviderError(error);
+		}
+		if (context.signal?.aborted) {
+			await opened.release("abort");
+			throw abortedError();
+		}
+		let released = false;
+		let abortListener;
+		const tracked = {
+			namespace: reference.namespace,
+			kind: reference.kind,
+			release: async (reason = "complete") => {
+				if (released) return;
+				released = true;
+				if (abortListener && context.signal) context.signal.removeEventListener("abort", abortListener);
+				this.handles.delete(tracked);
+				await opened.release(reason);
+			}
+		};
+		this.handles.add(tracked);
+		if (context.signal) {
+			abortListener = () => {
+				Promise.resolve(tracked.release("abort")).catch(() => void 0);
+			};
+			context.signal.addEventListener("abort", abortListener, { once: true });
+			if (context.signal.aborted) {
+				await tracked.release("abort");
+				throw abortedError();
+			}
+		}
+		return Object.freeze({
+			...metadata,
+			body: opened.body,
+			release: tracked.release
+		});
+	}
+	async clearSession() {
+		const handles = [...this.handles];
+		this.handles.clear();
+		await Promise.allSettled(handles.map((handle) => handle.release("shutdown")));
+		const sessionEntries = [...this.providers.entries()].filter(([, entry]) => entry.lifetime === "session");
+		for (const [namespace] of sessionEntries) this.providers.delete(namespace);
+		await Promise.allSettled(sessionEntries.map(([, entry]) => entry.provider.release("shutdown")));
+		await Promise.allSettled([...this.providers.values()].map((entry) => entry.provider.clearSession?.()));
+	}
+	resolveProvider(reference, representation, context) {
+		validateReference(reference, representation, context);
+		const provider = this.providers.get(providerKey(reference.namespace, reference.kind))?.provider;
+		if (!provider) {
+			const hasNamespace = [...this.providers.values()].some((entry) => entry.provider.namespace === reference.namespace);
+			throw new NamedDataError(hasNamespace ? "NAMED_DATA_KIND_MISMATCH" : "NAMED_DATA_PROVIDER_NOT_FOUND", hasNamespace ? `No provider for kind ${reference.kind} is registered in namespace ${reference.namespace}.` : `No provider can resolve namespace: ${reference.namespace}`);
+		}
+		if (!provider.canResolve(reference, representation)) throw new NamedDataError("NAMED_DATA_REPRESENTATION_UNSUPPORTED", `Provider ${reference.namespace} does not support representation: ${representation}`);
+		return provider;
+	}
+	async releaseHandlesForProvider(namespace, kind) {
+		const handles = [...this.handles].filter((handle) => handle.namespace === namespace && handle.kind === kind);
+		await Promise.allSettled(handles.map((handle) => handle.release("shutdown")));
+	}
+};
+function installNamedDataRegistry(runtime) {
+	const host = runtime;
+	const existing = host[NAMED_DATA_REGISTRY_SYMBOL];
+	if (existing !== void 0) return requireCompatibleRegistry(existing);
+	const registry = new NamedDataRegistry();
+	Object.defineProperty(host, NAMED_DATA_REGISTRY_SYMBOL, {
+		configurable: true,
+		enumerable: false,
+		writable: false,
+		value: registry
+	});
+	return registry;
+}
+function bindNamedDataRegistryLifecycle(runtime, registry) {
+	const host = runtime;
+	const existing = host[LIFECYCLE_SYMBOL];
+	if (existing !== void 0) {
+		if (!isLifecycleBinding(existing) || existing.registry !== registry) throw new NamedDataError("NAMED_DATA_INVALID_REGISTRY", "Runtime already has a lifecycle binding for a different registry.");
+		existing.references += 1;
+		return lifecycleUnbind(runtime, host, existing);
+	}
+	const listener = () => {
+		registry.clearSession();
+	};
+	runtime.on("PROJECT_STOP_ALL", listener);
+	const binding = {
+		registry,
+		listener,
+		references: 1
+	};
+	Object.defineProperty(host, LIFECYCLE_SYMBOL, {
+		configurable: true,
+		enumerable: false,
+		writable: false,
+		value: binding
+	});
+	return lifecycleUnbind(runtime, host, binding);
+}
+function isLifecycleBinding(value) {
+	if (typeof value !== "object" || value === null) return false;
+	const candidate = value;
+	return isCompatibleRegistry(candidate.registry) && typeof candidate.listener === "function" && Number.isSafeInteger(candidate.references) && (candidate.references ?? -1) >= 0;
+}
+function lifecycleUnbind(runtime, host, binding) {
+	let active = true;
+	return () => {
+		if (!active || host[LIFECYCLE_SYMBOL] !== binding) return;
+		active = false;
+		binding.references -= 1;
+		if (binding.references > 0) return;
+		if (runtime.off) {
+			runtime.off("PROJECT_STOP_ALL", binding.listener);
+			delete host[LIFECYCLE_SYMBOL];
+		}
+	};
+}
+function requireCompatibleRegistry(value) {
+	if (isCompatibleRegistry(value)) return value;
+	throw new NamedDataError("NAMED_DATA_INVALID_REGISTRY", `Runtime slot ${NAMED_DATA_REGISTRY_SYMBOL_KEY} contains an invalid registry.`);
+}
+function isCompatibleRegistry(value) {
+	if (typeof value !== "object" || value === null) return false;
+	try {
+		const candidate = value;
+		return typeof candidate.registerProvider === "function" && typeof candidate.canResolve === "function" && typeof candidate.stat === "function" && typeof candidate.openBody === "function" && typeof candidate.clearSession === "function";
+	} catch {
+		return false;
+	}
+}
+function validateReference(reference, representation, context) {
+	validateReferenceShape(reference, representation);
+	if (reference.scope === "target" && context.target === void 0) throw new NamedDataError("NAMED_DATA_SCOPE_MISMATCH", "Target scope requires target context.");
+	if (reference.scope === "project" && context.project === void 0) throw new NamedDataError("NAMED_DATA_SCOPE_MISMATCH", "Project scope requires project context.");
+	throwIfAborted(context.signal);
+}
+function validateReferenceShape(reference, representation) {
+	if (!reference || typeof reference !== "object") throw invalidReference();
+	requireNamespace(reference.namespace);
+	if (typeof reference.name !== "string" || reference.name.length === 0 || reference.name.length > 256 || containsControlCharacter(reference.name) || !NAMED_DATA_KINDS.includes(reference.kind) || !NAMED_DATA_SCOPES.includes(reference.scope) || !NAMED_DATA_REPRESENTATIONS.includes(representation)) throw invalidReference();
+	if (reference.schemaRef !== void 0) validateSchemaRef(reference.kind, reference.schemaRef);
+}
+function validateMetadata(metadata, reference, representation) {
+	if (metadata.representation !== representation || !isNativeRepresentation(metadata.reference.kind, metadata.nativeRepresentation) || metadata.reference.namespace !== reference.namespace || metadata.reference.name !== reference.name || metadata.reference.kind !== reference.kind || metadata.reference.scope !== reference.scope || typeof metadata.mediaType !== "string" || metadata.mediaType.length === 0 || typeof metadata.revision !== "string" || metadata.revision.length === 0 || typeof metadata.replayable !== "boolean" || metadata.byteLength !== void 0 && (!Number.isSafeInteger(metadata.byteLength) || metadata.byteLength < 0) || metadata.digest !== void 0 && !/^sha256-[A-Za-z0-9_-]+$/u.test(metadata.digest)) throw invalidMetadata();
+	const expectedSchema = reference.schemaRef;
+	const actualSchema = metadata.schemaRef;
+	if (actualSchema !== void 0) validateSchemaRef(metadata.reference.kind, actualSchema, "NAMED_DATA_INVALID_METADATA");
+	if (metadata.reference.schemaRef !== void 0) validateSchemaRef(metadata.reference.kind, metadata.reference.schemaRef, "NAMED_DATA_INVALID_METADATA");
+	if (!sameSchemaRef(expectedSchema, actualSchema) || !sameSchemaRef(expectedSchema, metadata.reference.schemaRef)) throw new NamedDataError("NAMED_DATA_SCHEMA_VERSION_MISMATCH", "Provider schemaRef does not match the requested reference.");
+}
+/**
+* Copies provider metadata once so validation and consumers observe the same frozen identity.
+* Fields are read exactly once; payload bodies are never part of the snapshot.
+*/
+function snapshotMetadata(metadata) {
+	if (typeof metadata !== "object" || metadata === null) throw invalidMetadata();
+	const source = metadata.reference;
+	if (typeof source !== "object" || source === null) throw invalidMetadata();
+	const { namespace, name, kind, scope, schemaRef: referenceSchemaRef } = source;
+	const { nativeRepresentation, representation, mediaType, byteLength, digest, revision, replayable, schemaRef } = metadata;
+	const reference = snapshotSchemaRef(referenceSchemaRef);
+	const resolved = snapshotSchemaRef(schemaRef);
+	return Object.freeze({
+		reference: Object.freeze({
+			namespace,
+			name,
+			kind,
+			scope,
+			...reference === void 0 ? {} : { schemaRef: reference }
+		}),
+		nativeRepresentation,
+		representation,
+		mediaType,
+		...byteLength === void 0 ? {} : { byteLength },
+		...digest === void 0 ? {} : { digest },
+		revision,
+		replayable,
+		...resolved === void 0 ? {} : { schemaRef: resolved }
+	});
+}
+function snapshotSchemaRef(schemaRef) {
+	if (schemaRef === void 0) return void 0;
+	if (typeof schemaRef !== "object" || schemaRef === null || Object.keys(schemaRef).some((key) => key !== "id" && key !== "version")) throw invalidSchemaRef("NAMED_DATA_INVALID_METADATA");
+	const { id, version } = schemaRef;
+	if (typeof id !== "string" || typeof version !== "string") throw invalidSchemaRef("NAMED_DATA_INVALID_METADATA");
+	return Object.freeze({
+		id,
+		version
+	});
+}
+function validateSchemaRef(kind, schemaRef, errorCode = "NAMED_DATA_INVALID_REF") {
+	if (kind !== "structured" || typeof schemaRef !== "object" || schemaRef === null || !NAMED_DATA_SCHEMA_ID_PATTERN.test(String(schemaRef.id ?? "")) || !NAMED_DATA_SCHEMA_VERSION_PATTERN.test(String(schemaRef.version ?? "")) || Object.keys(schemaRef).some((key) => key !== "id" && key !== "version")) throw invalidSchemaRef(errorCode);
+}
+function invalidSchemaRef(errorCode) {
+	return new NamedDataError(errorCode, "Invalid schemaRef; schema references require a structured value, stable id, and full SemVer version.");
+}
+function invalidMetadata() {
+	return new NamedDataError("NAMED_DATA_INVALID_METADATA", "Provider returned invalid metadata.");
+}
+function sameSchemaRef(left, right) {
+	return left === void 0 ? right === void 0 : right !== void 0 && left.id === right.id && left.version === right.version;
+}
+function isNativeRepresentation(kind, representation) {
+	if (kind === "structured") return representation === "json" || representation === "yaml";
+	if (kind === "document") return representation === "html" || representation === "markdown";
+	return representation === "raw";
+}
+function requireNamespace(namespace) {
+	if (!isNamedDataNamespace(namespace)) throw invalidReference("Invalid namespace.");
+}
+function providerKey(namespace, kind) {
+	return `${namespace}\0${kind}`;
+}
+function containsControlCharacter(value) {
+	return [...value].some((character) => {
+		const code = character.codePointAt(0) ?? 0;
+		return code <= 31 || code === 127;
+	});
+}
+function invalidReference(message = "Invalid named-data reference.") {
+	return new NamedDataError("NAMED_DATA_INVALID_REF", message);
+}
+function throwIfAborted(signal) {
+	if (signal?.aborted) throw abortedError();
+}
+function abortedError() {
+	return new NamedDataError("NAMED_DATA_ABORTED", "Named-data operation was aborted.");
+}
+function normalizeProviderError(error) {
+	if (error instanceof NamedDataError) return error;
+	if (error instanceof Error && "code" in error && typeof error.code === "string" && errorCodes.has(error.code)) return new NamedDataError(error.code, error.message, { cause: error });
+	return new NamedDataError("NAMED_DATA_PROVIDER_RELEASED", "Provider operation failed.", { cause: error });
+}
+//#endregion
+//#region src/extension.ts
+var NamedDataExtension = class {
+	constructor(runtime, featureFlags = FEATURE_FLAGS) {
+		if (featureFlags.NAMED_DATA_REGISTRY_MVP) {
+			this.registry = installNamedDataRegistry(runtime);
+			this.unbindLifecycle = bindNamedDataRegistryLifecycle(runtime, this.registry);
+		}
+	}
+	getInfo() {
+		return {
+			id: extensionConfig.id,
+			name: Scratch.translate(block_definitions_default.extensionName),
+			docsURI: extensionConfig.docsURI,
+			blockIconURI: extensionConfig.blockIconURI,
+			blocks: this.registry ? [{
+				opcode: "isRegistryAvailable",
+				blockType: Scratch.BlockType.BOOLEAN,
+				text: Scratch.translate("named data registry available?")
+			}] : []
+		};
+	}
+	isRegistryAvailable() {
+		return this.registry !== void 0;
+	}
+	/** Used by hosts that unload extensions without stopping the project. */
+	dispose() {
+		this.unbindLifecycle?.();
+	}
+};
+//#endregion
+//#region src/index.ts
+if (extensionConfig.unsandboxed && !Scratch.extensions.unsandboxed) throw new Error(`${extensionConfig.name} must run unsandboxed.`);
+Scratch.extensions.register(new NamedDataExtension(Scratch.vm.runtime));
+//#endregion
 
 })(Scratch);
