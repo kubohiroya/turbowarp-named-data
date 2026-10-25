@@ -1,5 +1,7 @@
 # TurboWarp-Named-Data
 
+<img src="assets/block-icon.svg" alt="" width="48" height="48">
+
 [日本語](README.ja.md)
 
 A shared, runtime-neutral named-data contract and registry for unsandboxed TurboWarp extensions.
