@@ -6,6 +6,18 @@
 
 unsandboxed TurboWarp機能拡張間で共有する、runtime-neutralなNamed Data契約とregistryです。
 
+## 実行できるサンプル
+
+[**TurboWarp Editorでデモを開く**](https://turbowarp.org/editor?project_url=https%3A%2F%2Fkubohiroya.github.io%2Fturbowarp-named-data%2Fsamples%2Fregistry-availability.sb3) · [SB3をダウンロード](https://kubohiroya.github.io/turbowarp-named-data/samples/registry-availability.sb3)
+
+**Run without sandbox**を選び**Allow**し、緑の旗を押します。
+registry利用可能がtrueになります。停止後の再実行でも確認できます。
+
+このサンプルの起動設定だけを拡張構築中に有効にし、直後に元のglobal descriptorへ復元します。本体の既定OFFは変更しません。
+
+元データと期待結果: [`samples/README.md`](samples/README.md).
+`pnpm run samples:build` / `pnpm run samples:check` / `pnpm run pages:build`
+
 ## できること
 
 - `namespace + name + kind + scope`の参照をproviderへ解決します。

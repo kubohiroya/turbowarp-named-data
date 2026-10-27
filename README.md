@@ -6,6 +6,18 @@ English | [日本語](README.ja.md)
 
 A shared, runtime-neutral named-data contract and registry for unsandboxed TurboWarp extensions.
 
+## Runnable sample
+
+[**Open the demo in TurboWarp Editor**](https://turbowarp.org/editor?project_url=https%3A%2F%2Fkubohiroya.github.io%2Fturbowarp-named-data%2Fsamples%2Fregistry-availability.sb3) · [Download the SB3](https://kubohiroya.github.io/turbowarp-named-data/samples/registry-availability.sb3)
+
+Select **Run without sandbox**, then **Allow**, and click the green flag.
+Registry available is true. Stop and run again to check it again.
+
+This sample enables only its listed startup flag while constructing the extension, then restores the original global descriptor. The extension defaults remain OFF.
+
+Editable sources and expected results: [`samples/README.md`](samples/README.md).
+`pnpm run samples:build` / `pnpm run samples:check` / `pnpm run pages:build`
+
 ## What it does
 
 - resolves `namespace + name + kind + scope` references through registered providers;
