@@ -1,0 +1,155 @@
+{
+  "targets": [
+    {
+      "isStage": true,
+      "name": "Stage",
+      "variables": {
+        "sample-state": [
+          "Sample state",
+          ""
+        ],
+        "sample-registry-available": [
+          "Registry available",
+          ""
+        ]
+      },
+      "lists": {},
+      "broadcasts": {},
+      "blocks": {
+        "b1": {
+          "opcode": "event_whenflagclicked",
+          "parent": null,
+          "next": "b2",
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": true,
+          "x": 35,
+          "y": 35
+        },
+        "b2": {
+          "opcode": "data_setvariableto",
+          "parent": "b1",
+          "next": "b3",
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                10,
+                "Running"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "Sample state",
+              "sample-state"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "b3": {
+          "opcode": "data_setvariableto",
+          "parent": "b2",
+          "next": "b5",
+          "inputs": {
+            "VALUE": [
+              3,
+              "b4",
+              [
+                10,
+                ""
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "Registry available",
+              "sample-registry-available"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        },
+        "b4": {
+          "opcode": "kubohiroyanameddata_isRegistryAvailable",
+          "parent": "b3",
+          "next": null,
+          "inputs": {},
+          "fields": {},
+          "shadow": false,
+          "topLevel": false
+        },
+        "b5": {
+          "opcode": "data_setvariableto",
+          "parent": "b3",
+          "next": null,
+          "inputs": {
+            "VALUE": [
+              1,
+              [
+                10,
+                "Ready"
+              ]
+            ]
+          },
+          "fields": {
+            "VARIABLE": [
+              "Sample state",
+              "sample-state"
+            ]
+          },
+          "shadow": false,
+          "topLevel": false
+        }
+      },
+      "comments": {},
+      "currentCostume": 0,
+      "costumes": [
+        {
+          "assetId": "",
+          "name": "Instructions",
+          "bitmapResolution": 1,
+          "md5ext": "backdrop.svg",
+          "dataFormat": "svg",
+          "rotationCenterX": 240,
+          "rotationCenterY": 180
+        }
+      ],
+      "sounds": [],
+      "volume": 100,
+      "layerOrder": 0,
+      "tempo": 60,
+      "videoTransparency": 50,
+      "videoState": "off",
+      "textToSpeechLanguage": null
+    }
+  ],
+  "monitors": [
+    {
+      "id": "sample-registry-available",
+      "mode": "default",
+      "opcode": "data_variable",
+      "params": {
+        "VARIABLE": "Registry available"
+      },
+      "spriteName": null,
+      "value": "",
+      "width": 0,
+      "height": 0,
+      "x": 18,
+      "y": 115,
+      "visible": true,
+      "sliderMin": 0,
+      "sliderMax": 100,
+      "isDiscrete": true
+    }
+  ],
+  "extensions": [],
+  "meta": {
+    "semver": "3.0.0",
+    "vm": "0.2.0",
+    "agent": "TurboWarp Plus minimal samples"
+  }
+}

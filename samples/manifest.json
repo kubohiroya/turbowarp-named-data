@@ -1,0 +1,26 @@
+{
+  "baseURL": "https://kubohiroya.github.io/turbowarp-named-data/",
+  "extension": {
+    "id": "kubohiroyanameddata",
+    "bundle": "dist/named-data.js",
+    "unsandboxed": true,
+    "startupFlags": {
+      "__TW_NAMED_DATA_FEATURE_FLAGS__": {
+        "NAMED_DATA_REGISTRY_MVP": true
+      }
+    }
+  },
+  "samples": [
+    {
+      "name": "registry-availability",
+      "title": "Named Data minimal demo",
+      "checks": [
+        {
+          "variable": "sample-registry-available",
+          "equals": true
+        }
+      ],
+      "instructions": "Registry available is true. Stop and run again to check it again."
+    }
+  ]
+}
