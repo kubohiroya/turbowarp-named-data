@@ -1,6 +1,6 @@
 {
   "name": "@kubohiroya/turbowarp-named-data",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Shared named-data references and provider registry for TurboWarp extensions.",
   "author": "Hiroya Kubo <hiroya@cuc.ac.jp>",
   "license": "MPL-2.0",
@@ -81,9 +81,9 @@
     "vite": "^8.2.2",
     "vitest": "^5.0.0"
   },
-  "gitHead": "f121bdb79cbec336f6ce7617e40b1e355516a41f",
+  "gitHead": "3c894db34787d18c35867eb590b4bb7cb322a4f7",
   "x-turbowarp-source": {
-    "revision": "f121bdb79cbec336f6ce7617e40b1e355516a41f",
+    "revision": "3c894db34787d18c35867eb590b4bb7cb322a4f7",
     "revisionRole": "base-commit",
     "sourceState": "local-release-overlay"
   }
