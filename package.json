@@ -1,8 +1,12 @@
 {
   "name": "@kubohiroya/turbowarp-named-data",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "description": "Shared named-data references and provider registry for TurboWarp extensions.",
-  "author": "Hiroya Kubo <hiroya@cuc.ac.jp>",
+  "author": {
+    "name": "Hiroya Kubo",
+    "email": "hiroya@cuc.ac.jp",
+    "url": "https://github.com/kubohiroya"
+  },
   "license": "MPL-2.0",
   "homepage": "https://github.com/kubohiroya/turbowarp-named-data#readme",
   "repository": {
@@ -71,8 +75,8 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
-    "@kubohiroya/turbowarp-extension-manifest": "^0.4.0",
-    "@kubohiroya/vite-plugin-turbowarp-extension": "^0.9.0",
+    "@kubohiroya/turbowarp-extension-manifest": "^0.5.0",
+    "@kubohiroya/vite-plugin-turbowarp-extension": "^0.10.0",
     "@types/node": "^24.13.3",
     "eslint": "^9.39.5",
     "jiti": "^2.7.0",
