@@ -87,6 +87,18 @@ var NAMED_DATA_ERROR_CODES = [
 	"NAMED_DATA_ABORTED",
 	"NAMED_DATA_PROVIDER_RELEASED"
 ];
+/** Native byte forms retained by each provider kind; this does not enable conversion. */
+var NAMED_DATA_NATIVE_REPRESENTATIONS = Object.freeze({
+	structured: Object.freeze(["json", "yaml"]),
+	document: Object.freeze([
+		"html",
+		"markdown",
+		"yaml",
+		"json"
+	]),
+	binary: Object.freeze(["raw"]),
+	asset: Object.freeze(["raw"])
+});
 var NamedDataError = class extends Error {
 	constructor(code, message, options) {
 		super(`${code}: ${message}`, options);
@@ -361,9 +373,7 @@ function sameSchemaRef(left, right) {
 	return left === void 0 ? right === void 0 : right !== void 0 && left.id === right.id && left.version === right.version;
 }
 function isNativeRepresentation(kind, representation) {
-	if (kind === "structured") return representation === "json" || representation === "yaml";
-	if (kind === "document") return representation === "html" || representation === "markdown";
-	return representation === "raw";
+	return NAMED_DATA_NATIVE_REPRESENTATIONS[kind].includes(representation);
 }
 function requireNamespace(namespace) {
 	if (!isNamedDataNamespace(namespace)) throw invalidReference("Invalid namespace.");

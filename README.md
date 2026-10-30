@@ -42,7 +42,7 @@ Structured references may include `schemaRef: { id, version }`. IDs use lowercas
 ## Installation
 
 ```bash
-pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.7.0
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.8.0-rc.0
 ```
 
 Load `dist/named-data.js` in TurboWarp after setting the feature flag. Providers use the contract in `src/contract.ts` and install or retrieve the shared service with `installNamedDataRegistry(runtime)` or `getNamedDataRegistry(runtime)`.
@@ -101,3 +101,6 @@ Generated release artifacts include `dist/named-data.js`, `dist/composition.js`,
 ## License
 
 SPDX-License-Identifier: MPL-2.0
+
+
+Document providers may retain native HTML, Markdown, YAML or JSON bytes. The registry preserves the selected native form and does not parse, render or implicitly convert source documents. Existing structured (JSON/YAML) and binary/asset (raw) forms are unchanged. Project reset/stop registration and handle lifetimes are unchanged.

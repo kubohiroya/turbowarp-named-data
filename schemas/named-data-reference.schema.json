@@ -8,7 +8,7 @@
   "properties": {
     "namespace": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{0,63}$"},
     "name": {"type": "string", "minLength": 1, "maxLength": 256},
-    "kind": {"enum": ["structured", "document", "binary", "asset"]},
+    "kind": {"description": "Document providers may retain native HTML, Markdown, YAML or JSON byte bodies. Native form does not imply conversion support.", "enum": ["structured", "document", "binary", "asset"]},
     "scope": {"enum": ["target", "project"]},
     "representation": {"enum": ["json", "yaml", "html", "markdown", "raw"]},
     "schemaRef": {"$ref": "#/$defs/schemaRef"}
