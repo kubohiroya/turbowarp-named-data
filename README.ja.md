@@ -42,7 +42,7 @@ structured referenceには`schemaRef: { id, version }`を任意で指定でき�
 ## インストール
 
 ```bash
-pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.7.0
+pnpm add --save-exact @kubohiroya/turbowarp-named-data@0.8.0-rc.0
 ```
 
 feature flagの設定後に`dist/named-data.js`をTurboWarpへloadします。providerは`src/contract.ts`の契約に従い、`installNamedDataRegistry(runtime)`または`getNamedDataRegistry(runtime)`で共有serviceへ接続します。
@@ -88,3 +88,6 @@ pnpm run check
 ## ライセンス
 
 SPDX-License-Identifier: MPL-2.0
+
+
+document providerのnative形式にHTML・Markdown・YAML・JSONを許容します。原文のbyte列をそのまま扱い、registryは解析・再出力・暗黙の形式変換をしません。structuredのJSON/YAML、binary/assetのraw、停止・作品切替時の登録とhandleの既存契約は変更しません。

@@ -469,3 +469,21 @@ describe('NamedDataRegistry', () => {
     await expect(registry.stat(targetReference, 'json', {target: {}})).rejects.toEqual(expect.any(NamedDataError));
   });
 });
+
+it.each(['yaml','json','html','markdown'] as const)('serves native %s documents without changing source bytes or persistent lifetime',async representation=>{
+ const runtime={},registry=installNamedDataRegistry(runtime);
+ const reference:NamedDataReference={namespace:'source-document',name:'settings',kind:'document',scope:'project'};
+ const source=representation==='yaml'?'# comment\r\nvalue: "one" # keep\r\n':representation==='json'?' { "value" : "one" }\r\n':representation==='html'?'<p>one</p>\r\n':'# one\r\n';
+ const bytes=new TextEncoder().encode(source),release=vi.fn(),clearSession=vi.fn();
+ const metadata={reference,nativeRepresentation:representation,representation,mediaType:'text/plain; charset=utf-8',byteLength:bytes.length,revision:'source:r1',replayable:true};
+ const bodyRelease=vi.fn();const provider:NamedDataProvider={namespace:reference.namespace,kind:'document',canResolve:(_ref,requested)=>requested===representation,stat:()=>metadata,openBody:()=>({...metadata,body:bytes,release:bodyRelease}),release,clearSession};
+ const registration=registry.registerProvider(provider,{lifetime:'persistent'});
+ expect(await registry.stat(reference,representation,{project:runtime})).toMatchObject({nativeRepresentation:representation,revision:'source:r1'});
+ const body=await registry.openBody(reference,representation,{project:runtime});expect(body.body).toEqual(bytes);expect(new TextDecoder().decode(body.body as Uint8Array)).toBe(source);
+ await registry.clearSession();expect(clearSession).toHaveBeenCalledTimes(1);expect(release).not.toHaveBeenCalled();expect(bodyRelease).toHaveBeenCalledTimes(1);expect(registry.canResolve(reference,representation)).toBe(true);
+ await registration.unregister();expect(release).toHaveBeenCalledTimes(1);
+});
+it.each([['document','raw'],['structured','html'],['binary','yaml'],['asset','json']] as const)('still rejects invalid native metadata for %s/%s',async(kind,representation)=>{
+ const registry=new NamedDataRegistry();registry.registerProvider(provider('boundary',kind));
+ await expect(registry.openBody({namespace:'boundary',name:'x',kind,scope:'project'},representation,{project:{}})).rejects.toMatchObject({code:'NAMED_DATA_INVALID_METADATA'});
+});

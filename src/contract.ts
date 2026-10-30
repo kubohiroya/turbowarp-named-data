@@ -36,6 +36,15 @@ export const NAMED_DATA_ERROR_CODES = [
 export type NamedDataKind = (typeof NAMED_DATA_KINDS)[number];
 export type NamedDataScope = (typeof NAMED_DATA_SCOPES)[number];
 export type NamedDataRepresentation = (typeof NAMED_DATA_REPRESENTATIONS)[number];
+
+/** Native byte forms retained by each provider kind; this does not enable conversion. */
+export const NAMED_DATA_NATIVE_REPRESENTATIONS: Readonly<Record<NamedDataKind, readonly NamedDataRepresentation[]>> = Object.freeze({
+  structured: Object.freeze(['json', 'yaml'] as const),
+  document: Object.freeze(['html', 'markdown', 'yaml', 'json'] as const),
+  binary: Object.freeze(['raw'] as const),
+  asset: Object.freeze(['raw'] as const)
+});
+
 export type NamedDataErrorCode = (typeof NAMED_DATA_ERROR_CODES)[number];
 export type NamedDataReleaseReason = 'complete' | 'cancel' | 'abort' | 'error' | 'shutdown';
 
@@ -66,7 +75,7 @@ export interface NamedDataMetadata {
   readonly reference: NamedDataReference;
   /** Must match reference.schemaRef exactly when the reference declares one. */
   readonly schemaRef?: NamedDataSchemaRef;
-  /** Representation retained by the provider as the named value's native form. */
+  /** Native byte form for the reference kind. Documents allow HTML, Markdown, YAML or JSON; no automatic conversion is implied. */
   readonly nativeRepresentation: NamedDataRepresentation;
   /** Representation selected for this resolved body. */
   readonly representation: NamedDataRepresentation;

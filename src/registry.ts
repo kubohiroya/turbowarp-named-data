@@ -1,6 +1,7 @@
 import {
   NAMED_DATA_ERROR_CODES,
   NAMED_DATA_KINDS,
+  NAMED_DATA_NATIVE_REPRESENTATIONS,
   NAMED_DATA_REGISTRY_SYMBOL,
   NAMED_DATA_REGISTRY_SYMBOL_KEY,
   NAMED_DATA_REPRESENTATIONS,
@@ -489,9 +490,7 @@ function isNativeRepresentation(
   kind: NamedDataReference['kind'],
   representation: NamedDataRepresentation
 ): boolean {
-  if (kind === 'structured') return representation === 'json' || representation === 'yaml';
-  if (kind === 'document') return representation === 'html' || representation === 'markdown';
-  return representation === 'raw';
+  return NAMED_DATA_NATIVE_REPRESENTATIONS[kind].includes(representation);
 }
 
 function requireNamespace(namespace: string): void {
