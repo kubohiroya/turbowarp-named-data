@@ -1,6 +1,6 @@
 {
   "name": "@kubohiroya/turbowarp-named-data",
-  "version": "0.8.0-rc.1",
+  "version": "0.8.0",
   "description": "Shared named-data references and provider registry for TurboWarp extensions.",
   "author": {
     "name": "Hiroya Kubo",
